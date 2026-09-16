@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ajg-domains | Claim Your Custom Domain</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: #161b22;
+            --border-color: #30363d;
+            --accent-color: #58a6ff;
+            --accent-hover: #1f6feb;
+            --text-color: #c9d1d9;
+            --heading-color: #f0f6fc;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 650px;
+            width: 100%;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--heading-color);
+            margin-bottom: 10px;
+            letter-spacing: -1px;
+        }
+
+        .logo span {
+            color: var(--accent-color);
+        }
+
+        .tagline {
+            font-size: 1.1rem;
+            color: #8b949e;
+            margin-bottom: 30px;
+        }
+
+        .domain-search-box {
+            display: flex;
+            align-items: center;
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 16px;
+            margin-bottom: 25px;
+        }
+
+        .domain-search-box input {
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--heading-color);
+            font-size: 1rem;
+            width: 100%;
+            padding: 8px 0;
+        }
+
+        .domain-suffix {
+            color: #8b949e;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .btn-make-site {
+            display: inline-block;
+            width: 100%;
+            padding: 14px 24px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #ffffff;
+            background-color: var(--accent-hover);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+
+        .btn-make-site:hover {
+            background-color: var(--accent-color);
+        }
+
+        .btn-make-site:active {
+            transform: scale(0.98);
+        }
+
+        .features {
+            margin-top: 35px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 25px;
+        }
+
+        .feature-item h4 {
+            color: var(--heading-color);
+            font-size: 0.95rem;
+            margin-bottom: 5px;
+        }
+
+        .feature-item p {
+            font-size: 0.8rem;
+            color: #8b949e;
+        }
+
+        @media (max-width: 500px) {
+            .features {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1 class="logo">ajg-<span>domains</span></h1>
+        <p class="tagline">Build and claim custom web domains for your projects instantly.</p>
+
+        <div class="domain-search-box">
+            <input type="text" placeholder="your-site-name" id="domainInput" />
+            <span class="domain-suffix">.ajg.dev</span>
+        </div>
+
+        <!-- Opens form in a new tab -->
+        <a href="https://forms.gle/1nPPZwatehH1yGNC7" target="_blank" rel="noopener noreferrer" class="btn-make-site">
+            Make site
+        </a>
+
+        <div class="features">
+            <div class="feature-item">
+                <h4>Fast Setup</h4>
+                <p>Request your site link in under a minute.</p>
+            </div>
+            <div class="feature-item">
+                <h4>Custom Links</h4>
+                <p>Get unique domains for all your builds.</p>
+            </div>
+            <div class="feature-item">
+                <h4>Free Request</h4>
+                <p>Submit via form and go live quickly.</p>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
