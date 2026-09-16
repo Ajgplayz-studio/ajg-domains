@@ -3,109 +3,229 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ajg-domains | Claim Your Custom Domain</title>
+    <title>ajg-domains | Instant Custom Web Publishing</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #0d1117;
-            --card-bg: #161b22;
-            --border-color: #30363d;
-            --accent-color: #58a6ff;
-            --accent-hover: #1f6feb;
-            --text-color: #c9d1d9;
-            --heading-color: #f0f6fc;
+            --bg-dark: #080a0f;
+            --card-bg: rgba(18, 22, 33, 0.75);
+            --border-glow: rgba(88, 166, 255, 0.2);
+            --accent-primary: #6366f1;
+            --accent-secondary: #a855f7;
+            --accent-cyan: #38bdf8;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
         }
 
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
         }
 
         body {
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            display: flex;
-            flex-direction: column;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
             min-height: 100vh;
+            display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            padding: 24px;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Ambient Glow Background */
+        .glow-bg {
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.1) 40%, rgba(0, 0, 0, 0) 70%);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 0;
+            pointer-events: none;
+            animation: pulseGlow 8s infinite alternate ease-in-out;
+        }
+
+        @keyframes pulseGlow {
+            0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.8; }
+            100% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
         }
 
         .container {
-            max-width: 550px;
+            position: relative;
+            z-index: 1;
+            max-width: 640px;
             width: 100%;
-            background-color: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 40px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 48px 40px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6),
+                        0 0 40px var(--border-glow);
             text-align: center;
         }
 
+        /* Badge */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(99, 102, 241, 0.12);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            color: #a5b4fc;
+            padding: 6px 16px;
+            border-radius: 100px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 24px;
+            letter-spacing: 0.3px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #22c55e;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #22c55e;
+        }
+
         .logo {
-            font-size: 2.5rem;
+            font-size: 3rem;
             font-weight: 800;
-            color: var(--heading-color);
-            margin-bottom: 10px;
-            letter-spacing: -1px;
+            letter-spacing: -1.5px;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #ffffff 30%, #a5b4fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
         .logo span {
-            color: var(--accent-color);
+            background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
         .tagline {
-            font-size: 1.1rem;
-            color: #8b949e;
-            margin-bottom: 30px;
+            font-size: 1.15rem;
+            color: var(--text-muted);
+            margin-bottom: 32px;
+            line-height: 1.6;
+        }
+
+        /* CTA Button Wrapper */
+        .cta-wrapper {
+            margin-bottom: 28px;
         }
 
         .btn-make-site {
-            display: inline-block;
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
             width: 100%;
-            padding: 16px 24px;
-            font-size: 1.15rem;
-            font-weight: 600;
+            padding: 18px 32px;
+            font-size: 1.25rem;
+            font-weight: 700;
             color: #ffffff;
-            background-color: var(--accent-hover);
+            background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
             border: none;
-            border-radius: 8px;
+            border-radius: 14px;
             cursor: pointer;
             text-decoration: none;
-            transition: background-color 0.2s ease, transform 0.1s ease;
+            box-shadow: 0 10px 25px rgba(99, 102, 241, 0.4);
+            transition: all 0.25s ease;
         }
 
         .btn-make-site:hover {
-            background-color: var(--accent-color);
+            transform: translateY(-2px);
+            box-shadow: 0 15px 35px rgba(99, 102, 241, 0.6);
+            filter: brightness(1.1);
         }
 
         .btn-make-site:active {
-            transform: scale(0.98);
+            transform: translateY(1px);
         }
 
+        .btn-icon {
+            width: 22px;
+            height: 22px;
+            transition: transform 0.2s ease;
+        }
+
+        .btn-make-site:hover .btn-icon {
+            transform: translateX(4px);
+        }
+
+        /* Time Estimate Banner */
+        .timer-notice {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 12px 18px;
+            margin-bottom: 36px;
+            color: #cbd5e1;
+            font-size: 0.92rem;
+        }
+
+        .timer-icon {
+            color: var(--accent-cyan);
+            flex-shrink: 0;
+        }
+
+        .timer-notice strong {
+            color: #f1f5f9;
+        }
+
+        /* Grid Features */
         .features {
-            margin-top: 35px;
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            border-top: 1px solid var(--border-color);
-            padding-top: 25px;
+            gap: 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            padding-top: 32px;
         }
 
-        .feature-item h4 {
-            color: var(--heading-color);
+        .feature-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 16px 12px;
+            text-align: center;
+        }
+
+        .feature-card h4 {
+            color: var(--text-main);
             font-size: 0.95rem;
-            margin-bottom: 5px;
+            font-weight: 600;
+            margin-bottom: 6px;
         }
 
-        .feature-item p {
+        .feature-card p {
+            color: var(--text-muted);
             font-size: 0.8rem;
-            color: #8b949e;
+            line-height: 1.4;
         }
 
-        @media (max-width: 500px) {
+        @media (max-width: 540px) {
+            .container {
+                padding: 32px 20px;
+            }
+            .logo {
+                font-size: 2.3rem;
+            }
             .features {
                 grid-template-columns: 1fr;
             }
@@ -114,27 +234,50 @@
 </head>
 <body>
 
+    <div class="glow-bg"></div>
+
     <div class="container">
+        <!-- Live Status Badge -->
+        <div class="status-badge">
+            <span class="status-dot"></span> Domain Engine Active
+        </div>
+
         <h1 class="logo">ajg-<span>domains</span></h1>
-        <p class="tagline">Build and claim custom web domains for your projects instantly.</p>
+        <p class="tagline">Deploy your custom project links into existence. High speed, zero hassle.</p>
 
-        <!-- Opens form in a new tab -->
-        <a href="https://forms.gle/1nPPZwatehH1yGNC7" target="_blank" rel="noopener noreferrer" class="btn-make-site">
-            Make site
-        </a>
+        <!-- CTA Button -->
+        <div class="cta-wrapper">
+            <a href="https://forms.gle/1nPPZwatehH1yGNC7" target="_blank" rel="noopener noreferrer" class="btn-make-site">
+                Make site
+                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                    <polyline points="12 5 19 12 12 19"></polyline>
+                </svg>
+            </a>
+        </div>
 
+        <!-- Publication Speed Notice -->
+        <div class="timer-notice">
+            <svg class="timer-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            <span>Lightning Fast: Takes only <strong>~10 minutes</strong> to go live after submission!</span>
+        </div>
+
+        <!-- Features Grid -->
         <div class="features">
-            <div class="feature-item">
-                <h4>Fast Setup</h4>
-                <p>Request your site link in under a minute.</p>
+            <div class="feature-card">
+                <h4>⚡ Ultra Fast</h4>
+                <p>Live on the web in roughly 10 minutes.</p>
             </div>
-            <div class="feature-item">
-                <h4>Custom Links</h4>
-                <p>Get unique domains for all your builds.</p>
+            <div class="feature-card">
+                <h4>🔗 Custom Links</h4>
+                <p>Tailored domain setup for your builds.</p>
             </div>
-            <div class="feature-item">
-                <h4>Free Request</h4>
-                <p>Submit via form and go live quickly.</p>
+            <div class="feature-card">
+                <h4>🚀 Easy Launch</h4>
+                <p>Fill out the form and we handle the rest.</p>
             </div>
         </div>
     </div>
