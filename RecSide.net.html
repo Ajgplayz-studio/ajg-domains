@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RecSide - Offline</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            background-color: #0b1329;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 550px;
+            background: #111b38;
+            border: 1px solid #1e3a8a;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 20px;
+            color: #60a5fa;
+            letter-spacing: -1px;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 15px;
+            color: #f8fafc;
+        }
+
+        p {
+            font-size: 1rem;
+            line-height: 1.6;
+            color: #94a3b8;
+            margin-bottom: 25px;
+        }
+
+        .btn {
+            display: inline-block;
+            background-color: #2563eb;
+            color: #ffffff;
+            font-weight: 600;
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+
+        .btn:hover {
+            background-color: #1d4ed8;
+            transform: translateY(-2px);
+        }
+
+        .extra-info {
+            display: none;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #1e3a8a;
+            font-size: 0.95rem;
+            color: #cbd5e1;
+            line-height: 1.6;
+            text-align: left;
+        }
+
+        .footer {
+            margin-top: 30px;
+            font-size: 0.85rem;
+            color: #64748b;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="logo">RecSide</div>
+        <h1>Service Has Ended</h1>
+        <p>Sorry, RecSide and the site RecSide.net have gone down for good.</p>
+        
+        <button class="btn" onclick="toggleDetails()">Read More</button>
+
+        <div id="detailsBox" class="extra-info">
+            <p><strong>Why did RecSide shut down?</strong></p>
+            <p>To be completely honest, I was having a really hard time working on the game all by myself, and unfortunately, no one wanted to help or work with me on it. Keeping everything running solo became too much to handle. Thanks to everyone who supported the project while it lasted.</p>
+        </div>
+
+        <div class="footer">
+            &copy; 2026 RecSide Studio. Thanks for the good times.
+        </div>
+    </div>
+
+    <script>
+        function toggleDetails() {
+            var box = document.getElementById("detailsBox");
+            var btn = document.querySelector(".btn");
+            if (box.style.display === "block") {
+                box.style.display = "none";
+                btn.innerText = "Read More";
+            } else {
+                box.style.display = "block";
+                btn.innerText = "Show Less";
+            }
+        }
+    </script>
+
+</body>
+</html>
