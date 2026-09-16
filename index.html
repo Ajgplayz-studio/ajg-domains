@@ -73,28 +73,51 @@
             text-align: center;
         }
 
-        /* Badge */
+        /* Dynamic Status Badge */
         .status-badge {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            background: rgba(99, 102, 241, 0.12);
-            border: 1px solid rgba(99, 102, 241, 0.3);
-            color: #a5b4fc;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-muted);
             padding: 6px 16px;
             border-radius: 100px;
             font-size: 0.85rem;
             font-weight: 600;
             margin-bottom: 24px;
             letter-spacing: 0.3px;
+            transition: all 0.3s ease;
+        }
+
+        .status-badge.active {
+            background: rgba(99, 102, 241, 0.12);
+            border-color: rgba(99, 102, 241, 0.3);
+            color: #a5b4fc;
+        }
+
+        .status-badge.inactive {
+            background: rgba(239, 68, 68, 0.12);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #fca5a5;
         }
 
         .status-dot {
             width: 8px;
             height: 8px;
-            background-color: #22c55e;
+            background-color: #94a3b8;
             border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+
+        .status-badge.active .status-dot {
+            background-color: #22c55e;
             box-shadow: 0 0 10px #22c55e;
+        }
+
+        .status-badge.inactive .status-dot {
+            background-color: #ef4444;
+            box-shadow: 0 0 10px #ef4444;
         }
 
         .logo {
@@ -238,8 +261,8 @@
 
     <div class="container">
         <!-- Live Status Badge -->
-        <div class="status-badge">
-            <span class="status-dot"></span> Domain Engine Active
+        <div class="status-badge" id="formStatusBadge">
+            <span class="status-dot"></span> <span id="formStatusText">Checking Status...</span>
         </div>
 
         <h1 class="logo">ajg-<span>domains</span></h1>
@@ -282,5 +305,39 @@
         </div>
     </div>
 
+    <script>
+        async function checkFormStatus() {
+            const badge = document.getElementById('formStatusBadge');
+            const text = document.getElementById('formStatusText');
+            const targetUrl = 'https://forms.gle/1nPPZwatehH1yGNC7';
+
+            try {
+                // Fetch form HTML via CORS Proxy
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+                const response = await fetch(proxyUrl);
+                const data = await response.json();
+
+                // Google Forms outputs explicit strings when closed to submissions
+                const isClosed = data.contents.includes("no longer accepting responses") || 
+                                 data.contents.includes("no longer accepting a response");
+
+                if (!isClosed && data.contents.length > 0) {
+                    badge.classList.add('active');
+                    badge.classList.remove('inactive');
+                    text.innerText = 'Domain Engine Active';
+                } else {
+                    badge.classList.add('inactive');
+                    badge.classList.remove('active');
+                    text.innerText = 'Domain Engine Offline';
+                }
+            } catch (error) {
+                // Default fallback if request fails
+                badge.classList.add('active');
+                text.innerText = 'Domain Engine Active';
+            }
+        }
+
+        checkFormStatus();
+    </script>
 </body>
 </html>
