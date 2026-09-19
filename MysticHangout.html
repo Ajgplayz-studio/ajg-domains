@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mystic Hangout</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #e2e8f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 550px;
+            background: #bfa182;
+            border: 3px solid #333;
+            overflow: hidden;
+        }
+
+        /* LOADING SCREEN */
+        #loading-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #f1f5f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .loading-card {
+            background: #ffffff;
+            width: 380px;
+            padding: 30px 24px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .loading-title {
+            color: #0f172a;
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+
+        .progress-box {
+            width: 100%;
+            height: 18px;
+            background: #f1f5f9;
+            border-radius: 20px;
+            padding: 3px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            width: 0%;
+            height: 100%;
+            background: #ff5e62;
+            border-radius: 20px;
+            transition: width 0.1s linear;
+        }
+
+        .progress-text {
+            color: #64748b;
+            font-size: 0.85rem;
+            margin-top: 14px;
+            font-weight: 600;
+        }
+
+        /* PLATFORM SELECTOR */
+        #platform-selector {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+
+        .ready-text {
+            color: #22c55e;
+            font-size: 0.9rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .platform-buttons {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .plat-btn {
+            flex: 1;
+            background: #ff5e62;
+            color: #ffffff;
+            border: none;
+            padding: 10px 0;
+            font-size: 0.8rem;
+            font-weight: 700;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: transform 0.1s, background 0.1s;
+        }
+
+        .plat-btn:hover {
+            background: #e0484c;
+            transform: translateY(-1px);
+        }
+
+        /* GAME CANVAS */
+        #gameCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* WATCH HUD BUTTON */
+        #watch-hud-btn {
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            background: #222;
+            border: 2px solid #ff5e62;
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.85rem;
+            cursor: pointer;
+            z-index: 10;
+            display: none;
+        }
+
+        /* WATCH MENU PANEL */
+        #watch-panel {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 280px;
+            background: #18181b;
+            border: 2px solid #ff5e62;
+            border-radius: 12px;
+            padding: 18px;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 20;
+        }
+
+        #watch-panel h3 {
+            color: #ff5e62;
+            text-align: center;
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+        }
+
+        .menu-btn {
+            background: #222;
+            color: #fff;
+            border: 1px solid #444;
+            padding: 10px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .menu-btn:hover {
+            background: #ff5e62;
+        }
+
+        #flash {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #fff;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 80;
+            transition: opacity 0.1s ease-out;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        
+        <!-- LOADING SCREEN -->
+        <div id="loading-screen">
+            <div class="loading-card">
+                <div class="loading-title">Loading Mystic Hangout</div>
+                
+                <div id="loading-progress-container" style="width: 100%;">
+                    <div class="progress-box">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                    <div class="progress-text" id="progress-text">Loading 0%</div>
+                </div>
+
+                <div id="platform-selector">
+                    <div class="ready-text">Ready</div>
+                    <div class="platform-buttons">
+                        <button class="plat-btn" onclick="startGame()">PC</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CANVAS -->
+        <canvas id="gameCanvas" width="800" height="550"></canvas>
+        <button id="watch-hud-btn">WATCH MENU</button>
+
+        <!-- WATCH MENU -->
+        <div id="watch-panel">
+            <h3>MYSTIC WATCH</h3>
+            <button class="menu-btn" id="btn-room-toggle">Go to Rec Center</button>
+            <button class="menu-btn" id="btn-spawn-cam">Spawn Camera</button>
+            <button class="menu-btn" id="btn-snap-photo">Snap Photo</button>
+            <button class="menu-btn" id="btn-close-watch">Close</button>
+        </div>
+
+        <div id="flash"></div>
+
+    </div>
+
+    <script>
+        const fill = document.getElementById('progress-fill');
+        const text = document.getElementById('progress-text');
+        const progressContainer = document.getElementById('loading-progress-container');
+        const platformSelector = document.getElementById('platform-selector');
+        const loadingScreen = document.getElementById('loading-screen');
+        const watchBtn = document.getElementById('watch-hud-btn');
+
+        // Exactly 10 Seconds Loading Duration
+        let progress = 0;
+        const totalTimeMs = 10000;
+        const intervalMs = 100;
+        const increment = 100 / (totalTimeMs / intervalMs);
+
+        const loadInterval = setInterval(() => {
+            progress += increment;
+            if (progress >= 100) {
+                progress = 100;
+                clearInterval(loadInterval);
+                setTimeout(() => {
+                    progressContainer.style.display = 'none';
+                    platformSelector.style.display = 'flex';
+                }, 200);
+            }
+            fill.style.width = Math.min(100, progress) + '%';
+            text.innerText = 'Loading ' + Math.floor(Math.min(100, progress)) + '%';
+        }, intervalMs);
+
+        function startGame() {
+            loadingScreen.style.display = 'none';
+            watchBtn.style.display = 'block';
+            isPlaying = true;
+        }
+
+        // GAME INITIALIZATION
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const watchPanel = document.getElementById('watch-panel');
+        const roomToggleBtn = document.getElementById('btn-room-toggle');
+
+        let isPlaying = false;
+        let isWatchOpen = false;
+        let currentRoom = 'dorm';
+
+        const player = {
+            x: 400,
+            y: 360,
+            color: '#00e5ff',
+            name: 'You',
+            baseSpeed: 3.5,
+            sprintSpeed: 6.5
+        };
+
+        let cameraProp = null;
+
+        const keys = {};
+        window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+        window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+        watchBtn.addEventListener('click', () => {
+            isWatchOpen = !isWatchOpen;
+            watchPanel.style.display = isWatchOpen ? 'flex' : 'none';
+        });
+
+        document.getElementById('btn-close-watch').addEventListener('click', () => {
+            isWatchOpen = false;
+            watchPanel.style.display = 'none';
+        });
+
+        // SWITCH ROOMS
+        roomToggleBtn.addEventListener('click', () => {
+            if (currentRoom === 'dorm') {
+                currentRoom = 'reccenter';
+                roomToggleBtn.innerText = 'Go to Dorm';
+            } else {
+                currentRoom = 'dorm';
+                roomToggleBtn.innerText = 'Go to Rec Center';
+            }
+            player.x = 400;
+            player.y = 360;
+            cameraProp = null;
+            isWatchOpen = false;
+            watchPanel.style.display = 'none';
+        });
+
+        document.getElementById('btn-spawn-cam').addEventListener('click', () => {
+            cameraProp = { x: player.x + 50, y: player.y };
+            isWatchOpen = false;
+            watchPanel.style.display = 'none';
+        });
+
+        document.getElementById('btn-snap-photo').addEventListener('click', () => {
+            const flash = document.getElementById('flash');
+            flash.style.opacity = '1';
+            setTimeout(() => { flash.style.opacity = '0'; }, 150);
+        });
+
+        // DORM ROOM
+        function drawExactDorm() {
+            ctx.fillStyle = '#b79776';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#44ff12';
+            ctx.fillRect(0, 160, canvas.width, 105);
+
+            ctx.fillStyle = '#9e5a32';
+            ctx.beginPath();
+            ctx.ellipse(canvas.width / 2, 530, 480, 80, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#000';
+            const topPositions = [20, 240, 460, 680];
+            topPositions.forEach(xPos => {
+                ctx.beginPath();
+                ctx.arc(xPos + 60, -10, 65, 0, Math.PI);
+                ctx.fill();
+
+                ctx.fillStyle = '#80ff00';
+                for (let i = 0; i < 4; i++) {
+                    let angle = (Math.PI / 4) * (i + 0.5);
+                    let dotX = (xPos + 60) - Math.cos(angle) * 65;
+                    let dotY = -10 + Math.sin(angle) * 20;
+                    ctx.beginPath();
+                    ctx.ellipse(dotX, Math.max(8, dotY), 10, 6, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.fillStyle = '#000';
+            });
+        }
+
+        // REC CENTER
+        function drawRecCenter() {
+            ctx.fillStyle = '#e8dfc8';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#dec094';
+            ctx.fillRect(0, 260, canvas.width, 290);
+
+            ctx.strokeStyle = '#cba776';
+            ctx.lineWidth = 1;
+            for (let i = 260; i < canvas.height; i += 24) {
+                ctx.beginPath();
+                ctx.moveTo(0, i);
+                ctx.lineTo(canvas.width, i);
+                ctx.stroke();
+            }
+
+            ctx.fillStyle = '#a6c0c7';
+            ctx.fillRect(310, 5, 180, 55);
+            ctx.strokeStyle = '#4a2d18';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(310, 5, 180, 55);
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(370, 5); ctx.lineTo(370, 60);
+            ctx.moveTo(430, 5); ctx.lineTo(430, 60);
+            ctx.moveTo(310, 32); ctx.lineTo(490, 32);
+            ctx.stroke();
+
+            ctx.fillStyle = '#e59a53';
+            ctx.fillRect(210, 110, 110, 150);
+            ctx.fillRect(480, 110, 110, 150);
+
+            ctx.fillStyle = '#3a8eb3';
+            ctx.fillRect(0, 180, 210, 80);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 130, 210, 50);
+
+            ctx.strokeStyle = '#3d2516';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(0, 125); ctx.lineTo(210, 125);
+            for (let x = 10; x <= 200; x += 30) {
+                ctx.moveTo(x, 125); ctx.lineTo(x, 150);
+            }
+            ctx.stroke();
+
+            ctx.fillStyle = '#b59263';
+            for (let i = 0; i < 5; i++) {
+                ctx.fillRect(170 + (i * 8), 220 + (i * 8), 35, 8);
+            }
+
+            ctx.fillStyle = '#b85e43';
+            ctx.fillRect(660, 120, 90, 140);
+            ctx.strokeStyle = '#8d432d';
+            ctx.lineWidth = 1;
+            for (let y = 130; y < 260; y += 12) {
+                ctx.beginPath();
+                ctx.moveTo(660, y); ctx.lineTo(750, y);
+                ctx.stroke();
+            }
+
+            ctx.fillStyle = '#3a8eb3';
+            ctx.fillRect(650, 200, 110, 60);
+            ctx.fillStyle = '#2c7596';
+            ctx.fillRect(660, 225, 90, 20);
+
+            ctx.fillStyle = '#4a2d18';
+            ctx.fillRect(0, 60, canvas.width, 16);
+            ctx.fillRect(0, 105, canvas.width, 12);
+
+            ctx.fillRect(210, 60, 18, 200);
+            ctx.fillRect(360, 60, 16, 200);
+            ctx.fillRect(424, 60, 16, 200);
+            ctx.fillRect(580, 60, 18, 200);
+
+            ctx.strokeStyle = '#4a2d18';
+            ctx.lineWidth = 10;
+            ctx.beginPath();
+            ctx.moveTo(0, 60); ctx.lineTo(90, 105);
+            ctx.moveTo(120, 60); ctx.lineTo(210, 105);
+            ctx.stroke();
+
+            ctx.fillStyle = '#328b9c';
+            ctx.beginPath();
+            ctx.roundRect(310, 215, 180, 50, 6);
+            ctx.fill();
+
+            ctx.fillStyle = '#22608a';
+            ctx.fillRect(320, 150, 160, 65);
+
+            ctx.fillStyle = '#f0a33a';
+            ctx.fillRect(320, 75, 160, 75);
+            ctx.fillStyle = '#d9831d';
+            ctx.font = '900 24px Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('REC', 400, 110);
+            ctx.fillText('ROOM', 400, 138);
+
+            ctx.fillStyle = '#f0a33a';
+            ctx.beginPath();
+            ctx.roundRect(380, 225, 40, 25, 4);
+            ctx.fill();
+        }
+
+        // AVATAR CARD
+        function drawAvatarCard(x, y, bodyColor, nameLabel) {
+            ctx.save();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.roundRect(x - 45, y - 65, 90, 125, 18);
+            ctx.fill();
+
+            ctx.fillStyle = '#f5d0a9';
+            ctx.beginPath();
+            ctx.arc(x, y - 30, 16, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            ctx.fillStyle = '#2b1d0c';
+            ctx.beginPath();
+            ctx.arc(x, y - 30, 16, Math.PI * 1.1, Math.PI * 1.9);
+            ctx.fill();
+
+            ctx.fillStyle = bodyColor;
+            ctx.beginPath();
+            ctx.roundRect(x - 15, y - 12, 30, 45, 15);
+            ctx.fill();
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            ctx.fillStyle = 'rgba(40, 40, 40, 0.9)';
+            ctx.beginPath();
+            ctx.roundRect(x - 30, y + 15, 60, 22, 11);
+            ctx.fill();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(nameLabel, x, y + 30);
+
+            ctx.fillStyle = '#e2e2e2';
+            ctx.beginPath();
+            ctx.roundRect(x - 35, y + 43, 70, 10, 5);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // UNRESTRICTED MOVEMENT LOOP
+        function update() {
+            if (!isPlaying || isWatchOpen) return;
+
+            const speed = keys['shift'] ? player.sprintSpeed : player.baseSpeed;
+
+            if (keys['w'] || keys['arrowup']) player.y -= speed;
+            if (keys['s'] || keys['arrowdown']) player.y += speed;
+            if (keys['a'] || keys['arrowleft']) player.x -= speed;
+            if (keys['d'] || keys['arrowright']) player.x += speed;
+        }
+
+        function draw() {
+            if (currentRoom === 'dorm') {
+                drawExactDorm();
+            } else {
+                drawRecCenter();
+            }
+
+            if (!isPlaying) return;
+
+            if (cameraProp) {
+                ctx.fillStyle = '#1e1a3a';
+                ctx.fillRect(cameraProp.x - 10, cameraProp.y - 8, 20, 16);
+                ctx.fillStyle = '#ff5e62';
+                ctx.beginPath();
+                ctx.arc(cameraProp.x, cameraProp.y, 5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            drawAvatarCard(player.x, player.y, player.color, player.name);
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        loop();
+    </script>
+</body>
+</html>
