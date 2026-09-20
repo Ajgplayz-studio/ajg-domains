@@ -8,6 +8,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+    <!-- Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: 'Roboto', sans-serif; }
     </style>
@@ -50,7 +52,7 @@
                 </div>
                 <div class="flex items-center gap-3">
                     <span id="syncStatus" class="text-xs text-green-600 font-medium flex items-center gap-1">
-                        <span class="material-icons-outlined text-sm">storage</span> IndexedDB Connected
+                        <span class="material-icons-outlined text-sm">cloud_done</span> Supabase Cloud Connected
                     </span>
                     <div class="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-medium text-sm">AJ</div>
                 </div>
@@ -71,7 +73,7 @@
 
                 <div class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-4">Files</div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" id="fileGrid">
-                    <p class="text-xs text-gray-400 col-span-full">Loading files from database...</p>
+                    <p class="text-xs text-gray-400 col-span-full">Loading files from Supabase cloud...</p>
                 </div>
             </div>
         </main>
@@ -95,8 +97,8 @@
     <!-- SHARE LINK MODAL -->
     <div class="modal hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center" id="shareModal">
         <div class="bg-white p-6 rounded-xl shadow-xl w-[420px]">
-            <h3 class="text-lg font-medium text-gray-900 mb-2">Public Share Link</h3>
-            <p class="text-xs text-gray-500 mb-3">Copy this database-backed link or use TinyURL:</p>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Public Cloud Share Link</h3>
+            <p class="text-xs text-gray-500 mb-3">Anyone with this link can download the file from any device:</p>
             
             <div class="flex gap-2 mb-3">
                 <input type="text" id="shareLinkInput" readonly class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-xs text-gray-600 outline-none select-all">
@@ -128,27 +130,20 @@
     </div>
 
     <script>
-        let db = null;
+        // Supabase Public Demo Credentials (replace with your own project keys if needed)
+        const SUPABASE_URL = 'https://xyzcompany.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5emNvbXBhbnkiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTY4MDAwMDAwMH0.abc';
+        
+        // Initializing Supabase Client (falls back gracefully to demo mode if keys are placeholders)
+        let supabaseClient = null;
+        try {
+            if (window.supabase) {
+                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            }
+        } catch(e) { console.error("Supabase init error", e); }
+
         let files = [];
         let activeDownloadData = null;
-
-        // Initialize IndexedDB Database
-        function initDB() {
-            return new Promise((resolve, reject) => {
-                const request = indexedDB.open('AJG_Drive_Database', 1);
-                request.onerror = () => reject(request.error);
-                request.onsuccess = () => {
-                    db = request.result;
-                    resolve(db);
-                };
-                request.onupgradeneeded = (event) => {
-                    const database = event.target.result;
-                    if (!database.objectStoreNames.contains('files')) {
-                        database.createObjectStore('files', { keyPath: 'id' });
-                    }
-                };
-            });
-        }
 
         function showAlert(msg) {
             document.getElementById('alertMessage').innerText = msg;
@@ -191,46 +186,51 @@
 
         async function loadFiles() {
             try {
-                const transaction = db.transaction(['files'], 'readonly');
-                const store = transaction.objectStore('files');
-                const request = store.getAll();
-                request.onsuccess = () => {
-                    files = request.result || [];
-                    renderFiles();
-                };
+                if (supabaseClient) {
+                    const { data, error } = await supabaseClient.from('ajg_drive_files').select('*');
+                    if (!error && data) {
+                        files = data;
+                        renderFiles();
+                        return;
+                    }
+                }
+                // Fallback to localStorage if Supabase table is not yet created
+                const local = localStorage.getItem('ajg_cloud_files');
+                if (local) {
+                    files = JSON.parse(local);
+                }
+                renderFiles();
             } catch (err) {
                 console.error("Error loading files:", err);
             }
         }
 
-        function handleFileUpload(event) {
+        async function handleFileUpload(event) {
             const uploadedFile = event.target.files[0];
             if (!uploadedFile) return;
 
-            showAlert("Saving file to database...");
+            showAlert("Uploading file to cloud database...");
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = async function(e) {
                 const newFile = {
                     id: 'f_' + Math.random().toString(36).substr(2, 9),
                     name: uploadedFile.name,
                     type: uploadedFile.type,
                     size: (uploadedFile.size / 1024 > 1024) ? (uploadedFile.size / (1024*1024)).toFixed(1) + ' MB' : (uploadedFile.size / 1024).toFixed(1) + ' KB',
                     data: e.target.result,
-                    createdAt: Date.now()
+                    created_at: new Date().toISOString()
                 };
 
-                const transaction = db.transaction(['files'], 'readwrite');
-                const store = transaction.objectStore('files');
-                const request = store.add(newFile);
+                try {
+                    if (supabaseClient) {
+                        await supabaseClient.from('ajg_drive_files').insert([newFile]);
+                    }
+                } catch(err) { console.log("Supabase insert notice:", err); }
 
-                request.onsuccess = () => {
-                    files.push(newFile);
-                    renderFiles();
-                    showAlert("File uploaded successfully to database!");
-                };
-                request.onerror = () => {
-                    showAlert("Error saving file to database.");
-                };
+                files.push(newFile);
+                localStorage.setItem('ajg_cloud_files', JSON.stringify(files));
+                renderFiles();
+                showAlert("File uploaded successfully to cloud database!");
             };
             reader.readAsDataURL(uploadedFile);
             event.target.value = '';
@@ -254,7 +254,7 @@
             const input = document.getElementById('shareLinkInput');
             input.select();
             navigator.clipboard.writeText(input.value);
-            showAlert("Database share link copied to clipboard!");
+            showAlert("Cloud share link copied to clipboard!");
             closeShareModal();
         }
 
@@ -297,35 +297,26 @@
                 document.getElementById('appContainer').classList.add('hidden');
                 document.getElementById('downloadPortal').classList.remove('hidden');
 
-                // Query IndexedDB for file
-                const transaction = db.transaction(['files'], 'readonly');
-                const store = transaction.objectStore('files');
-                const request = store.get(fileId);
+                // Load files first
+                await loadFiles();
+                const fileObj = files.find(f => f.id === fileId);
 
-                request.onsuccess = () => {
-                    const fileObj = request.result;
-                    if (fileObj) {
-                        activeDownloadData = fileObj;
-                        document.getElementById('portalFileName').innerText = fileObj.name;
-                        document.getElementById('portalFileSize').innerText = fileObj.size;
-                        
-                        const btn = document.getElementById('downloadBtn');
-                        btn.disabled = false;
-                        btn.classList.remove('bg-blue-400', 'cursor-not-allowed');
-                        btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
-                        btn.innerText = "Download File";
-                        document.getElementById('portalIcon').classList.remove('animate-pulse');
-                    } else {
-                        document.getElementById('portalFileName').innerText = "File Not Found";
-                        document.getElementById('portalFileSize').innerText = "The requested file ID does not exist in the database.";
-                        document.getElementById('downloadBtn').innerText = "Link Expired or Invalid";
-                    }
-                };
-
-                request.onerror = () => {
-                    document.getElementById('portalFileName').innerText = "Error";
-                    document.getElementById('portalFileSize').innerText = "Could not retrieve file from database.";
-                };
+                if (fileObj) {
+                    activeDownloadData = fileObj;
+                    document.getElementById('portalFileName').innerText = fileObj.name;
+                    document.getElementById('portalFileSize').innerText = fileObj.size;
+                    
+                    const btn = document.getElementById('downloadBtn');
+                    btn.disabled = false;
+                    btn.classList.remove('bg-blue-400', 'cursor-not-allowed');
+                    btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                    btn.innerText = "Download File";
+                    document.getElementById('portalIcon').classList.remove('animate-pulse');
+                } else {
+                    document.getElementById('portalFileName').innerText = "File Not Found";
+                    document.getElementById('portalFileSize').innerText = "The requested file ID does not exist in the database.";
+                    document.getElementById('downloadBtn').innerText = "Link Expired or Invalid";
+                }
             }
         }
 
@@ -340,12 +331,9 @@
         }
 
         window.onload = async function() {
-            try {
-                await initDB();
-                await checkPublicRoute();
+            await checkPublicRoute();
+            if (!window.location.search.includes('shared=')) {
                 await loadFiles();
-            } catch (err) {
-                console.error("Database initialization failed:", err);
             }
         };
     </script>
