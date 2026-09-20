@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ajg-drive - Cloud Storage</title>
+    <!-- Google Fonts & Material Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #1a73e8;
+            --primary-light: #e8f0fe;
+            --surface-color: #f8f9fa;
+            --border-color: #dadce0;
+            --text-main: #202124;
+            --text-secondary: #5f6368;
+            --sidebar-width: 256px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Roboto', sans-serif;
+        }
+
+        body {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #ffffff;
+            color: var(--text-main);
+        }
+
+        /* --- SIDEBAR --- */
+        aside {
+            width: var(--sidebar-width);
+            background-color: #ffffff;
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 8px 12px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            margin-bottom: 12px;
+        }
+
+        .brand span.material-icons-outlined {
+            font-size: 32px;
+            color: var(--primary-color);
+        }
+
+        .brand h1 {
+            font-size: 22px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .new-btn-container {
+            padding: 0 4px 16px 4px;
+        }
+
+        .new-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background-color: #ffffff;
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
+            cursor: pointer;
+            transition: box-shadow 0.2s, background-color 0.2s;
+        }
+
+        .new-btn:hover {
+            background-color: var(--surface-color);
+            box-shadow: 0 1px 3px 0 rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15);
+        }
+
+        .nav-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            flex-grow: 1;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 10px 16px;
+            border-radius: 0 20px 20px 0;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .nav-item:hover {
+            background-color: var(--surface-color);
+        }
+
+        .nav-item.active {
+            background-color: var(--primary-light);
+            color: var(--primary-color);
+        }
+
+        .storage-info {
+            padding: 16px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            border-top: 1px solid var(--border-color);
+        }
+
+        .storage-bar {
+            background-color: var(--border-color);
+            height: 4px;
+            border-radius: 2px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+
+        .storage-progress {
+            background-color: var(--primary-color);
+            width: 35%;
+            height: 100%;
+        }
+
+        /* --- MAIN CONTENT AREA --- */
+        main {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--surface-color);
+            border-radius: 16px 0 0 16px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            margin: 8px 8px 8px 0;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 24px;
+            background-color: #ffffff;
+            border-bottom: 1px solid var(--border-color);
+            height: 64px;
+        }
+
+        .search-bar {
+            display: flex;
+            align-items: center;
+            background-color: var(--surface-color);
+            border-radius: 8px;
+            padding: 8px 16px;
+            width: 50%;
+            max-width: 720px;
+            border: 1px solid transparent;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+
+        .search-bar:focus-within {
+            background-color: #ffffff;
+            border-color: var(--border-color);
+            box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3);
+        }
+
+        .search-bar input {
+            border: none;
+            outline: none;
+            background: transparent;
+            width: 100%;
+            font-size: 16px;
+            margin-left: 12px;
+            color: var(--text-main);
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+        }
+
+        .content-body {
+            flex-grow: 1;
+            background-color: #ffffff;
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .card {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background-color: #ffffff;
+            cursor: pointer;
+            transition: background-color 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            background-color: var(--surface-color);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .card-title {
+            font-size: 14px;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .file-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .file-card {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+            background: #ffffff;
+            position: relative;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .file-card:hover {
+            border-color: var(--primary-color);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .file-preview {
+            height: 120px;
+            background-color: var(--surface-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .file-preview span {
+            font-size: 48px;
+            color: var(--text-secondary);
+        }
+
+        .file-details {
+            padding: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .file-meta h4 {
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 120px;
+        }
+
+        .file-meta p {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .action-icon {
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 20px;
+        }
+
+        .action-icon:hover {
+            color: var(--primary-color);
+        }
+
+        /* Modal / Dialog */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.4);
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #fff;
+            padding: 24px;
+            border-radius: 8px;
+            width: 420px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .modal-content h3 {
+            margin-bottom: 16px;
+            font-size: 18px;
+        }
+
+        .modal-content input, .modal-content textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            margin-bottom: 16px;
+            outline: none;
+            font-size: 14px;
+        }
+
+        .link-box {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .link-box input {
+            margin-bottom: 0;
+            background-color: var(--surface-color);
+            color: var(--text-secondary);
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .modal-buttons button {
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 1px solid var(--border-color);
+            background: #fff;
+            font-weight: 500;
+        }
+
+        .modal-buttons button.primary {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- SIDEBAR -->
+    <aside>
+        <div class="brand">
+            <span class="material-icons-outlined">cloud</span>
+            <h1>ajg-drive</h1>
+        </div>
+        
+        <div class="new-btn-container">
+            <button class="new-btn" onclick="openUploadModal()">
+                <span class="material-icons-outlined" style="color: #1a73e8;">add</span>
+                <span>New</span>
+            </button>
+        </div>
+
+        <ul class="nav-links">
+            <li><a href="#" class="nav-item active"><span class="material-icons-outlined">folder</span>My Drive</a></li>
+            <li><a href="#" class="nav-item"><span class="material-icons-outlined">devices</span>Computers</a></li>
+            <li><a href="#" class="nav-item"><span class="material-icons-outlined">people</span>Shared with me</a></li>
+            <li><a href="#" class="nav-item"><span class="material-icons-outlined">schedule</span>Recent</a></li>
+            <li><a href="#" class="nav-item"><span class="material-icons-outlined">star</span>Starred</a></li>
+            <li><a href="#" class="nav-item"><span class="material-icons-outlined">delete</span>Trash</a></li>
+        </ul>
+
+        <div class="storage-info">
+            <p><strong id="storageText">3.5 GB</strong> of 15 GB used</p>
+            <div class="storage-bar">
+                <div class="storage-progress"></div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- MAIN APP WINDOW -->
+    <main>
+        <header>
+            <div class="search-bar">
+                <span class="material-icons-outlined" style="color: var(--text-secondary);">search</span>
+                <input type="text" id="searchInput" placeholder="Search in ajg-drive" onkeyup="filterFiles()">
+            </div>
+            <div class="user-profile">
+                <span class="material-icons-outlined" style="color: var(--text-secondary); cursor: pointer;">settings</span>
+                <div class="avatar">AJ</div>
+            </div>
+        </header>
+
+        <div class="content-body">
+            <!-- Folders Section -->
+            <div class="section-title">Folders</div>
+            <div class="grid" id="folderGrid"></div>
+
+            <!-- Files Section -->
+            <div class="section-title">Files</div>
+            <div class="file-grid" id="fileGrid"></div>
+        </div>
+    </main>
+
+    <!-- UPLOAD MODAL -->
+    <div class="modal" id="uploadModal">
+        <div class="modal-content">
+            <h3>Upload New File content</h3>
+            <input type="text" id="fileNameInput" placeholder="File name (e.g., notes.txt)">
+            <textarea id="fileContentInput" rows="4" placeholder="Enter text content for the file..."></textarea>
+            <div class="modal-buttons">
+                <button onclick="closeUploadModal()">Cancel</button>
+                <button class="primary" onclick="saveFile()">Save & Upload</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SHARE LINK MODAL -->
+    <div class="modal" id="shareModal">
+        <div class="modal-content">
+            <h3>Shareable Download Link</h3>
+            <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">Shortened download link:</p>
+            <div class="link-box">
+                <input type="text" id="shortLinkInput" readonly>
+                <button class="primary" onclick="copyLink()">Copy</button>
+            </div>
+            <div class="modal-buttons">
+                <button onclick="closeShareModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Database / LocalStorage Setup
+        let folders = JSON.parse(localStorage.getItem('ajg_folders')) || [
+            { id: 1, name: "Project Alpha" },
+            { id: 2, name: "Personal Finances" }
+        ];
+
+        let files = JSON.parse(localStorage.getItem('ajg_files')) || [
+            { id: 1, name: "Welcome_Notes.txt", type: "notes", size: "15 KB", content: "Welcome to ajg-drive! Your data is safely stored in local browser database." }
+        ];
+
+        function saveData() {
+            localStorage.setItem('ajg_folders', JSON.stringify(folders));
+            localStorage.setItem('ajg_files', JSON.stringify(files));
+        }
+
+        function render() {
+            // Render Folders
+            const folderGrid = document.getElementById('folderGrid');
+            folderGrid.innerHTML = folders.map(f => `
+                <div class="card">
+                    <span class="material-icons-outlined">folder</span>
+                    <span class="card-title">${f.name}</span>
+                </div>
+            `).join('');
+
+            // Render Files
+            const fileGrid = document.getElementById('fileGrid');
+            fileGrid.innerHTML = files.map(file => `
+                <div class="file-card">
+                    <div class="file-preview">
+                        <span class="material-icons-outlined">${getFileIcon(file.type)}</span>
+                    </div>
+                    <div class="file-details">
+                        <div class="file-meta">
+                            <h4>${file.name}</h4>
+                            <p>${file.size}</p>
+                        </div>
+                        <span class="material-icons-outlined action-icon" title="Get Shareable Link" onclick="openShareModal('${file.id}')">link</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getFileIcon(type) {
+            switch(type) {
+                case 'document': return 'description';
+                case 'image': return 'image';
+                case 'table': return 'table_chart';
+                default: return 'insert_drive_file';
+            }
+        }
+
+        function openUploadModal() {
+            document.getElementById('uploadModal').classList.add('active');
+        }
+
+        function closeUploadModal() {
+            document.getElementById('uploadModal').classList.remove('active');
+            document.getElementById('fileNameInput').value = '';
+            document.getElementById('fileContentInput').value = '';
+        }
+
+        function saveFile() {
+            const name = document.getElementById('fileNameInput').value.trim();
+            const content = document.getElementById('fileContentInput').value;
+            if (!name) return;
+
+            let fileType = 'notes';
+            if (name.endsWith('.png') || name.endsWith('.jpg')) fileType = 'image';
+            if (name.endsWith('.xlsx')) fileType = 'table';
+            if (name.endsWith('.docx')) fileType = 'document';
+
+            const newFile = {
+                id: Date.now(),
+                name: name,
+                type: fileType,
+                size: (content.length > 0 ? (content.length / 1024).toFixed(1) + ' KB' : '1 KB'),
+                content: content || "Empty file content."
+            };
+
+            files.push(newFile);
+            saveData();
+            closeUploadModal();
+            render();
+        }
+
+        // Link Generation & Shortener Logic
+        function openShareModal(fileId) {
+            const file = files.find(f => f.id == fileId);
+            if (!file) return;
+
+            // Generate direct data URL for downloading
+            const blob = new Blob([file.content], { type: 'text/plain' });
+            const blobUrl = URL.createObjectURL(blob);
+
+            // Generate simulated short link using hash suffix
+            const randomCode = Math.random().toString(36).substring(2, 8);
+            const shortUrl = `https://ajg.to/dl/${randomCode}`;
+
+            // Temporarily store direct file download trigger to the short link simulation
+            document.getElementById('shortLinkInput').value = shortUrl;
+            
+            // Allow user to trigger actual download if they click or copy
+            window.currentDownloadBlobUrl = blobUrl;
+            window.currentFileName = file.name;
+
+            document.getElementById('shareModal').classList.add('active');
+        }
+
+        function closeShareModal() {
+            document.getElementById('shareModal').classList.remove('active');
+        }
+
+        function copyLink() {
+            const input = document.getElementById('shortLinkInput');
+            navigator.clipboard.writeText(input.value);
+            
+            // Trigger actual download locally as part of sharing simulation
+            const a = document.createElement('a');
+            a.href = window.currentDownloadBlobUrl;
+            a.download = window.currentFileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            alert("Shortened link copied to clipboard & file download triggered!");
+            closeShareModal();
+        }
+
+        function filterFiles() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const fileCards = document.querySelectorAll('.file-card');
+            
+            files.forEach((file, index) => {
+                const matches = file.name.toLowerCase().includes(query);
+                fileCards[index].style.display = matches ? 'block' : 'none';
+            });
+        }
+
+        // Run app on load
+        render();
+    </script>
+</body>
+</html>
