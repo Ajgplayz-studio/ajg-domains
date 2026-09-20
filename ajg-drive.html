@@ -50,7 +50,7 @@
                 </div>
                 <div class="flex items-center gap-3">
                     <span id="syncStatus" class="text-xs text-green-600 font-medium flex items-center gap-1">
-                        <span class="material-icons-outlined text-sm">cloud_done</span> Database Connected
+                        <span class="material-icons-outlined text-sm">storage</span> IndexedDB Connected
                     </span>
                     <div class="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-medium text-sm">AJ</div>
                 </div>
@@ -127,31 +127,34 @@
         </div>
     </div>
 
-    <!-- Firebase SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyDummyKeyForCanvasApp99123",
-            authDomain: "ajg-drive-storage.firebaseapp.com",
-            projectId: "ajg-drive-storage",
-            storageBucket: "ajg-drive-storage.appspot.com",
-            messagingSenderId: "1234567890",
-            appId: "1:1234567890:web:abcdef123456"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-
+    <script>
+        let db = null;
         let files = [];
         let activeDownloadData = null;
+
+        // Initialize IndexedDB Database
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open('AJG_Drive_Database', 1);
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    db = request.result;
+                    resolve(db);
+                };
+                request.onupgradeneeded = (event) => {
+                    const database = event.target.result;
+                    if (!database.objectStoreNames.contains('files')) {
+                        database.createObjectStore('files', { keyPath: 'id' });
+                    }
+                };
+            });
+        }
 
         function showAlert(msg) {
             document.getElementById('alertMessage').innerText = msg;
             document.getElementById('alertModal').classList.remove('hidden');
         }
-        window.closeAlert = function() {
+        function closeAlert() {
             document.getElementById('alertModal').classList.add('hidden');
         }
 
@@ -172,7 +175,7 @@
                             <h4 class="text-xs font-medium text-gray-800 truncate">${file.name}</h4>
                             <p class="text-[10px] text-gray-400">${file.size}</p>
                         </div>
-                        <button onclick="window.openShareModal('${file.id}')" title="Get Public Link" class="text-gray-400 hover:text-blue-600 transition">
+                        <button onclick="openShareModal('${file.id}')" title="Get Public Link" class="text-gray-400 hover:text-blue-600 transition">
                             <span class="material-icons-outlined text-lg">link</span>
                         </button>
                     </div>
@@ -186,49 +189,54 @@
             return 'insert_drive_file';
         }
 
-        // Fetch Files on Load
         async function loadFiles() {
             try {
-                const querySnapshot = await getDocs(collection(db, "files"));
-                files = [];
-                querySnapshot.forEach((docSnap) => {
-                    files.push({ id: docSnap.id, ...docSnap.data() });
-                });
-                renderFiles();
+                const transaction = db.transaction(['files'], 'readonly');
+                const store = transaction.objectStore('files');
+                const request = store.getAll();
+                request.onsuccess = () => {
+                    files = request.result || [];
+                    renderFiles();
+                };
             } catch (err) {
                 console.error("Error loading files:", err);
-                document.getElementById('syncStatus').innerHTML = '<span class="material-icons-outlined text-sm text-red-500">error</span> Offline Mode';
             }
         }
 
-        window.handleFileUpload = async function(event) {
+        function handleFileUpload(event) {
             const uploadedFile = event.target.files[0];
             if (!uploadedFile) return;
 
-            showAlert("Uploading file to database...");
+            showAlert("Saving file to database...");
             const reader = new FileReader();
-            reader.onload = async function(e) {
-                try {
-                    const newFile = {
-                        name: uploadedFile.name,
-                        type: uploadedFile.type,
-                        size: (uploadedFile.size / 1024 > 1024) ? (uploadedFile.size / (1024*1024)).toFixed(1) + ' MB' : (uploadedFile.size / 1024).toFixed(1) + ' KB',
-                        data: e.target.result,
-                        createdAt: Date.now()
-                    };
-                    const docRef = await addDoc(collection(db, "files"), newFile);
-                    files.push({ id: docRef.id, ...newFile });
+            reader.onload = function(e) {
+                const newFile = {
+                    id: 'f_' + Math.random().toString(36).substr(2, 9),
+                    name: uploadedFile.name,
+                    type: uploadedFile.type,
+                    size: (uploadedFile.size / 1024 > 1024) ? (uploadedFile.size / (1024*1024)).toFixed(1) + ' MB' : (uploadedFile.size / 1024).toFixed(1) + ' KB',
+                    data: e.target.result,
+                    createdAt: Date.now()
+                };
+
+                const transaction = db.transaction(['files'], 'readwrite');
+                const store = transaction.objectStore('files');
+                const request = store.add(newFile);
+
+                request.onsuccess = () => {
+                    files.push(newFile);
                     renderFiles();
                     showAlert("File uploaded successfully to database!");
-                } catch (err) {
-                    showAlert("Upload failed: " + err.message);
-                }
+                };
+                request.onerror = () => {
+                    showAlert("Error saving file to database.");
+                };
             };
             reader.readAsDataURL(uploadedFile);
             event.target.value = '';
         }
 
-        window.openShareModal = function(fileId) {
+        function openShareModal(fileId) {
             const file = files.find(f => f.id == fileId);
             if (!file) return;
 
@@ -238,11 +246,11 @@
             document.getElementById('shareModal').classList.remove('hidden');
         }
 
-        window.closeShareModal = function() {
+        function closeShareModal() {
             document.getElementById('shareModal').classList.add('hidden');
         }
 
-        window.copyShareLink = function() {
+        function copyShareLink() {
             const input = document.getElementById('shareLinkInput');
             input.select();
             navigator.clipboard.writeText(input.value);
@@ -250,7 +258,7 @@
             closeShareModal();
         }
 
-        window.shortenWithTinyURL = async function() {
+        async function shortenWithTinyURL() {
             const inputField = document.getElementById('shareLinkInput');
             const statusLabel = document.getElementById('tinyStatus');
             const originalUrl = inputField.value;
@@ -270,7 +278,7 @@
             }
         }
 
-        window.downloadSharedFile = function() {
+        function downloadSharedFile() {
             if (!activeDownloadData) return;
             const a = document.createElement('a');
             a.href = activeDownloadData.data;
@@ -289,37 +297,35 @@
                 document.getElementById('appContainer').classList.add('hidden');
                 document.getElementById('downloadPortal').classList.remove('hidden');
 
-                // Try fetching from database with retries
-                let attempts = 0;
-                while (attempts < 3) {
-                    try {
-                        const docRef = doc(db, "files", fileId);
-                        const docSnap = await getDoc(docRef);
+                // Query IndexedDB for file
+                const transaction = db.transaction(['files'], 'readonly');
+                const store = transaction.objectStore('files');
+                const request = store.get(fileId);
 
-                        if (docSnap.exists()) {
-                            activeDownloadData = docSnap.data();
-                            document.getElementById('portalFileName').innerText = activeDownloadData.name;
-                            document.getElementById('portalFileSize').innerText = activeDownloadData.size;
-                            
-                            const btn = document.getElementById('downloadBtn');
-                            btn.disabled = false;
-                            btn.classList.remove('bg-blue-400', 'cursor-not-allowed');
-                            btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
-                            btn.innerText = "Download File";
-                            document.getElementById('portalIcon').classList.remove('animate-pulse');
-                            return;
-                        }
-                    } catch (e) {
-                        console.error("Attempt failed", e);
+                request.onsuccess = () => {
+                    const fileObj = request.result;
+                    if (fileObj) {
+                        activeDownloadData = fileObj;
+                        document.getElementById('portalFileName').innerText = fileObj.name;
+                        document.getElementById('portalFileSize').innerText = fileObj.size;
+                        
+                        const btn = document.getElementById('downloadBtn');
+                        btn.disabled = false;
+                        btn.classList.remove('bg-blue-400', 'cursor-not-allowed');
+                        btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                        btn.innerText = "Download File";
+                        document.getElementById('portalIcon').classList.remove('animate-pulse');
+                    } else {
+                        document.getElementById('portalFileName').innerText = "File Not Found";
+                        document.getElementById('portalFileSize').innerText = "The requested file ID does not exist in the database.";
+                        document.getElementById('downloadBtn').innerText = "Link Expired or Invalid";
                     }
-                    attempts++;
-                    await new Promise(r => setTimeout(r, 1000));
-                }
+                };
 
-                // If not found after retries
-                document.getElementById('portalFileName').innerText = "File Not Found";
-                document.getElementById('portalFileSize').innerText = "The requested file ID does not exist in the database.";
-                document.getElementById('downloadBtn').innerText = "Link Expired or Invalid";
+                request.onerror = () => {
+                    document.getElementById('portalFileName').innerText = "Error";
+                    document.getElementById('portalFileSize').innerText = "Could not retrieve file from database.";
+                };
             }
         }
 
@@ -332,11 +338,15 @@
                 }
             });
         }
-        window.filterFiles = filterFiles;
 
         window.onload = async function() {
-            await checkPublicRoute();
-            await loadFiles();
+            try {
+                await initDB();
+                await checkPublicRoute();
+                await loadFiles();
+            } catch (err) {
+                console.error("Database initialization failed:", err);
+            }
         };
     </script>
 </body>
