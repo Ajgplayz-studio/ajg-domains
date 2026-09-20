@@ -1054,8 +1054,8 @@
     });
 
     function processAndSendFile(file) {
-      if (file.size > 15 * 1024 * 1024) {
-        appendMessage('System', 'File is too large! Please choose a file under 15MB.', 'var(--red)');
+      if (file.size > 1024 * 1024 * 1024) {
+        appendMessage('System', 'File is too large! Please choose a file under 1GB.', 'var(--red)');
         return;
       }
 
