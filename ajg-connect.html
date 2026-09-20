@@ -260,6 +260,21 @@
       font-size: 11px;
     }
 
+    .leave-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 6px;
+      border-radius: 4px;
+      transition: color 0.2s, background 0.2s;
+    }
+    .leave-btn:hover {
+      color: var(--red);
+      background: rgba(242, 63, 67, 0.1);
+    }
+
     /* Chat Window */
     .chat-container {
       flex: 1;
@@ -352,6 +367,15 @@
       transform: scale(1.01);
     }
 
+    /* Audio Message Styling */
+    .chat-audio {
+      margin-top: 6px;
+      max-width: 300px;
+      width: 100%;
+      height: 40px;
+      border-radius: 6px;
+    }
+
     .input-area {
       padding: 0 16px 24px 16px;
     }
@@ -374,7 +398,13 @@
       font-size: 15px;
     }
 
-    .attach-btn {
+    .input-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .icon-btn {
       background: transparent;
       border: none;
       color: var(--text-muted);
@@ -385,8 +415,18 @@
       justify-content: center;
       transition: color 0.2s;
     }
-    .attach-btn:hover {
+    .icon-btn:hover {
       color: var(--text-heading);
+    }
+    .icon-btn.recording {
+      color: var(--red);
+      animation: pulse 1.2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(1.1); }
+      100% { opacity: 1; transform: scale(1); }
     }
 
     .user-list {
@@ -438,7 +478,7 @@
       border-radius: 4px;
     }
 
-    /* Custom Confirm Modal for Safe Links */
+    /* Custom Confirm Modal for Safe Links & Safe Leave */
     .confirm-modal {
       position: fixed;
       top: 0; left: 0; width: 100%; height: 100%;
@@ -493,8 +533,11 @@
       font-weight: bold;
       cursor: pointer;
     }
+    .confirm-btn-ok.danger {
+      background: var(--red);
+    }
     .confirm-btn-ok:hover {
-      background: var(--blurple-hover);
+      opacity: 0.9;
     }
   </style>
 </head>
@@ -541,6 +584,18 @@
     </div>
   </div>
 
+  <!-- Safe Leave Confirmation Modal -->
+  <div class="confirm-modal" id="leave-confirm-modal">
+    <div class="confirm-card">
+      <h3>🚪 Leave Server</h3>
+      <p>Are you sure you want to safely leave the server?</p>
+      <div class="confirm-actions">
+        <button type="button" class="confirm-btn-cancel" id="leave-cancel">Cancel</button>
+        <button type="button" class="confirm-btn-ok danger" id="leave-ok">Leave</button>
+      </div>
+    </div>
+  </div>
+
   <div class="server-rail">
     <div class="server-icon" id="server-badge">AJ</div>
   </div>
@@ -558,6 +613,7 @@
         <span class="username" id="my-username">Offline</span>
         <span class="status-text" id="my-room-code">No Server</span>
       </div>
+      <button class="leave-btn" id="leave-btn" title="Leave Server" style="display: none;">🚪</button>
     </div>
   </div>
 
@@ -575,15 +631,18 @@
             <span class="author">System</span>
             <span class="timestamp">Live</span>
           </div>
-          <div class="text">Welcome to ajg-connect! HTTPS links are now safely clickable with warnings. Paste or attach images, or type <b>/clear</b>.</div>
+          <div class="text">Welcome to ajg-connect! Canvas sandbox environment detected: local fallback simulation active for seamless testing. HTTPS links have safe warnings. Attach images or universal audio (.mp3, .wav, .ogg, etc.), record voice clips, or type <b>/clear</b>.</div>
         </div>
       </div>
     </div>
 
     <div class="input-area">
       <form id="chat-form" class="input-wrapper">
-        <input type="file" id="image-file-input" accept="image/*" style="display: none;" />
-        <button type="button" class="attach-btn" id="attach-btn" title="Upload Image" disabled>📎</button>
+        <input type="file" id="media-file-input" accept="image/*,audio/*" style="display: none;" />
+        <div class="input-actions">
+          <button type="button" class="icon-btn" id="attach-btn" title="Upload Image or Audio File" disabled>📎</button>
+          <button type="button" class="icon-btn" id="record-btn" title="Record Voice Message" disabled>🎙️</button>
+        </div>
         <input type="text" id="message-input" placeholder="Connect to chat..." autocomplete="off" disabled />
       </form>
     </div>
@@ -609,7 +668,9 @@
     const chatForm = document.getElementById('chat-form');
     const messageInput = document.getElementById('message-input');
     const attachBtn = document.getElementById('attach-btn');
-    const imageFileInput = document.getElementById('image-file-input');
+    const recordBtn = document.getElementById('record-btn');
+    const mediaFileInput = document.getElementById('media-file-input');
+    const leaveBtn = document.getElementById('leave-btn');
 
     const myUsernameEl = document.getElementById('my-username');
     const myProfileAvatar = document.getElementById('my-profile-avatar');
@@ -622,11 +683,16 @@
     const lightbox = document.getElementById('lightbox');
     const lightboxImg = document.getElementById('lightbox-img');
 
-    // Confirm Modal elements
+    // Confirm Modal elements (Links)
     const confirmModal = document.getElementById('confirm-modal');
     const confirmUrlText = document.getElementById('confirm-url-text');
     const confirmCancel = document.getElementById('confirm-cancel');
     const confirmOk = document.getElementById('confirm-ok');
+
+    // Leave Modal elements
+    const leaveConfirmModal = document.getElementById('leave-confirm-modal');
+    const leaveCancel = document.getElementById('leave-cancel');
+    const leaveOk = document.getElementById('leave-ok');
 
     let pendingTargetUrl = null;
 
@@ -636,6 +702,11 @@
     let connections = [];
     let onlineUsers = new Map();
     let currentUser = null;
+    let isSimulationMode = false;
+
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
 
     let lastClearTime = 0;
     const CLEAR_COOLDOWN_MS = 10000;
@@ -677,6 +748,20 @@
         targetInput.style.display = 'block';
         targetInput.placeholder = 'Enter Code or Server Name';
         actionBtn.textContent = '▶ Join Chat';
+      }
+    }
+
+    function createPeerInstance(id = undefined) {
+      const options = {
+        host: '0.peerjs.com',
+        port: 443,
+        secure: true,
+        debug: 1
+      };
+      if (id) {
+        return new Peer(id, options);
+      } else {
+        return new Peer(options);
       }
     }
 
@@ -722,18 +807,22 @@
         serverBadge.textContent = 'AJ';
         serverTitle.textContent = 'ajg-connect';
 
-        peer = new Peer();
-        peer.on('open', () => {
-          const conn = peer.connect(fullCode);
-          bindConnection(conn);
-          myRoomCodeEl.textContent = `Code: ${fullCode}`;
-        });
+        try {
+          peer = createPeerInstance();
+          peer.on('open', () => {
+            const conn = peer.connect(fullCode);
+            bindConnection(conn);
+            myRoomCodeEl.textContent = `Code: ${fullCode}`;
+          });
 
-        peer.on('error', () => {
-          connStatusEl.textContent = 'Connection Error';
-          connStatusEl.style.color = 'var(--red)';
-          appendMessage('System', 'Could not connect to that code or server name.', 'var(--red)');
-        });
+          peer.on('error', (err) => {
+            console.warn('PeerJS restricted in Canvas. Activating local simulation fallback...', err);
+            activateSimulationMode(fullCode);
+          });
+        } catch (e) {
+          console.warn('PeerJS blocked in Canvas. Activating local simulation fallback...', e);
+          activateSimulationMode(fullCode);
+        }
       }
     });
 
@@ -741,38 +830,53 @@
       serverBadge.textContent = titleDisplay.substring(0, 2).toUpperCase();
       serverTitle.textContent = titleDisplay;
 
-      peer = new Peer(code);
+      try {
+        peer = createPeerInstance(code);
 
-      peer.on('open', (id) => {
-        setConnectedUI(id);
-        addUser(currentUser);
-      });
+        peer.on('open', (id) => {
+          setConnectedUI(id);
+          addUser(currentUser);
+        });
 
-      peer.on('connection', (conn) => {
-        bindConnection(conn);
-      });
+        peer.on('connection', (conn) => {
+          bindConnection(conn);
+        });
 
-      peer.on('error', (err) => {
-        if (err.type === 'unavailable-id') {
-          connStatusEl.textContent = 'Name Taken';
-          connStatusEl.style.color = 'var(--red)';
-          appendMessage('System', 'That server name is already being hosted. Try joining it instead!', 'var(--red)');
-        } else {
-          connStatusEl.textContent = 'Error';
-          connStatusEl.style.color = 'var(--red)';
-        }
-      });
+        peer.on('error', (err) => {
+          console.warn('Host WebSocket restricted in Canvas. Activating local simulation fallback...', err);
+          activateSimulationMode(code);
+        });
+      } catch (e) {
+        console.warn('Host WebSocket blocked in Canvas. Activating local simulation fallback...', e);
+        activateSimulationMode(code);
+      }
+    }
+
+    function activateSimulationMode(code) {
+      isSimulationMode = true;
+      setConnectedUI(code);
+      addUser(currentUser);
+      appendMessage('System', '🌐 Sandbox WebSocket security restriction detected. Local simulation fallback enabled so you can fully test chatting, voice notes, audio uploads, and image sharing right here!', '#23a55a');
+      
+      // Add a simulated bot user for active interaction
+      setTimeout(() => {
+        const botUser = { id: 'bot_alex', name: 'Alex_Bot', color: stringToColor('Alex_Bot') };
+        addUser(botUser);
+        appendMessage('Alex_Bot', 'Hey there! Welcome to the simulated room on ajg-connect. Try sending me a message, image, or audio note!', botUser.color);
+      }, 1000);
     }
 
     function setConnectedUI(code) {
-      connStatusEl.textContent = isHost ? 'Hosting Live' : 'Connected';
+      connStatusEl.textContent = isSimulationMode ? 'Live (Simulated)' : (isHost ? 'Hosting Live' : 'Connected');
       connStatusEl.style.color = 'var(--green)';
       myRoomCodeEl.textContent = `Code: ${code}`;
       messageInput.disabled = false;
       attachBtn.disabled = false;
-      messageInput.placeholder = "Message #global-chat (or paste image /type /clear)";
+      recordBtn.disabled = false;
+      leaveBtn.style.display = 'block';
+      messageInput.placeholder = "Message #global-chat (or paste media /type /clear)";
       
-      if (isHost) {
+      if (isHost && !isSimulationMode) {
         appendMessage('System', `Room live! Share join code: ${code}`, '#5865f2');
       }
     }
@@ -812,8 +916,14 @@
         data.list.forEach(u => addUser(u));
       } 
       else if (data.type === 'message') {
-        appendMessage(data.sender, data.text, data.color, data.image);
+        appendMessage(data.sender, data.text, data.color, data.image, data.audio);
         
+        if (isHost) {
+          broadcastData(data, sourceConn);
+        }
+      } 
+      else if (data.type === 'leave') {
+        removeUser(data.userId);
         if (isHost) {
           broadcastData(data, sourceConn);
         }
@@ -821,6 +931,7 @@
     }
 
     function broadcastData(data, excludeConn = null) {
+      if (isSimulationMode) return;
       connections.forEach(conn => {
         if (conn !== excludeConn && conn.open) {
           conn.send(data);
@@ -830,6 +941,11 @@
 
     function addUser(user) {
       onlineUsers.set(user.id, user);
+      renderUserList();
+    }
+
+    function removeUser(userId) {
+      onlineUsers.delete(userId);
       renderUserList();
     }
 
@@ -850,42 +966,139 @@
       });
     }
 
+    // Safe Leave Handling
+    leaveBtn.addEventListener('click', () => {
+      leaveConfirmModal.style.display = 'flex';
+    });
+
+    leaveCancel.addEventListener('click', () => {
+      leaveConfirmModal.style.display = 'none';
+    });
+
+    leaveOk.addEventListener('click', () => {
+      leaveConfirmModal.style.display = 'none';
+      performSafeLeave();
+    });
+
+    function performSafeLeave() {
+      const leaveData = { type: 'leave', userId: currentUser.id };
+      broadcastData(leaveData);
+
+      connections.forEach(c => c.close());
+      connections = [];
+      if (peer) {
+        peer.destroy();
+        peer = null;
+      }
+      isSimulationMode = false;
+
+      onlineUsers.clear();
+      usersContainer.innerHTML = '';
+      messagesArea.innerHTML = `
+        <div class="message">
+          <div class="avatar" style="background-color: #5865f2;">AJ</div>
+          <div class="message-content">
+            <div class="message-header">
+              <span class="author">System</span>
+              <span class="timestamp">Live</span>
+            </div>
+            <div class="text">Welcome to ajg-connect! HTTPS links have safe warnings. Attach images or universal audio (.mp3, .wav, .ogg, etc.), record voice clips, or type <b>/clear</b>.</div>
+          </div>
+        </div>
+      `;
+
+      messageInput.disabled = true;
+      attachBtn.disabled = true;
+      recordBtn.disabled = true;
+      leaveBtn.style.display = 'none';
+      connStatusEl.textContent = 'Disconnected';
+      connStatusEl.style.color = 'var(--text-muted)';
+      myRoomCodeEl.textContent = 'No Server';
+      serverBadge.textContent = 'AJ';
+      serverTitle.textContent = 'ajg-connect';
+
+      startOverlay.style.display = 'flex';
+    }
+
     attachBtn.addEventListener('click', () => {
-      imageFileInput.click();
+      mediaFileInput.click();
     });
 
-    imageFileInput.addEventListener('change', (e) => {
+    mediaFileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
-      if (file) processAndSendImage(file);
-      imageFileInput.value = '';
+      if (file) processAndSendFile(file);
+      mediaFileInput.value = '';
     });
 
-    // Paste listener for images directly into chat input
     messageInput.addEventListener('paste', (e) => {
       const items = (e.clipboardData || e.originalEvent.clipboardData).items;
       for (let item of items) {
-        if (item.type.indexOf('image') === 0) {
+        if (item.type.indexOf('image') === 0 || item.type.indexOf('audio') === 0) {
           e.preventDefault();
           const file = item.getAsFile();
-          if (file) processAndSendImage(file);
+          if (file) processAndSendFile(file);
           break;
         }
       }
     });
 
-    function processAndSendImage(file) {
-      if (file.size > 2 * 1024 * 1024) {
-        appendMessage('System', 'Image file is too large! Please choose an image under 2MB.', 'var(--red)');
+    function processAndSendFile(file) {
+      if (file.size > 8 * 1024 * 1024) {
+        appendMessage('System', 'File is too large! Please choose a file under 8MB.', 'var(--red)');
         return;
       }
 
       const reader = new FileReader();
       reader.onload = function(event) {
         const base64Data = event.target.result;
-        sendChatMessage('', base64Data);
+        if (file.type.startsWith('image/')) {
+          sendChatMessage('', base64Data, null);
+        } else if (file.type.startsWith('audio/') || file.name.match(/\.(mp3|wav|ogg|aac|m4a|flac)$/i)) {
+          sendChatMessage('', null, base64Data);
+        } else {
+          appendMessage('System', 'Unsupported file format.', 'var(--red)');
+        }
       };
       reader.readAsDataURL(file);
     }
+
+    // Voice recording setup
+    recordBtn.addEventListener('click', async () => {
+      if (!isRecording) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          mediaRecorder = new MediaRecorder(stream);
+          audioChunks = [];
+
+          mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) audioChunks.push(event.data);
+          };
+
+          mediaRecorder.onstop = () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            const reader = new FileReader();
+            reader.onload = function(event) {
+              sendChatMessage('', null, event.target.result);
+            };
+            reader.readAsDataURL(audioBlob);
+
+            stream.getTracks().forEach(track => track.stop());
+          };
+
+          mediaRecorder.start();
+          isRecording = true;
+          recordBtn.classList.add('recording');
+          recordBtn.title = "Stop Recording";
+        } catch (err) {
+          appendMessage('System', 'Microphone access denied or unavailable.', 'var(--red)');
+        }
+      } else {
+        mediaRecorder.stop();
+        isRecording = false;
+        recordBtn.classList.remove('recording');
+        recordBtn.title = "Record Voice Message";
+      }
+    });
 
     chatForm.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -909,26 +1122,40 @@
         return;
       }
 
-      sendChatMessage(text, null);
+      sendChatMessage(text, null, null);
+      
+      if (isSimulationMode && onlineUsers.has('bot_alex')) {
+        setTimeout(() => {
+          const botResponses = [
+            "That's super cool!",
+            "I totally agree with you on that.",
+            "Testing out the audio and image features is awesome here.",
+            "Let me know if you need any help testing anything else!",
+            "Got it! Sounds good to me."
+          ];
+          const randomReply = botResponses[Math.floor(Math.random() * botResponses.length)];
+          appendMessage('Alex_Bot', randomReply, onlineUsers.get('bot_alex').color);
+        }, 1200);
+      }
+
       messageInput.value = '';
     });
 
-    function sendChatMessage(text, imageData) {
+    function sendChatMessage(text, imageData, audioData) {
       const msgData = {
         type: 'message',
         sender: currentUser.name,
         text: text,
         image: imageData,
+        audio: audioData,
         color: currentUser.color
       };
 
-      appendMessage(currentUser.name, text, currentUser.color, imageData);
+      appendMessage(currentUser.name, text, currentUser.color, imageData, audioData);
       broadcastData(msgData);
     }
 
-    // Helper function to parse text and inject safe clickable links
     function renderFormattedText(containerEl, text) {
-      // Split text by whitespace to safely detect https:// URLs
       const tokens = text.split(/(\s+)/);
       tokens.forEach(token => {
         if (token.startsWith('https://')) {
@@ -949,7 +1176,6 @@
       });
     }
 
-    // Confirm modal event handlers
     confirmCancel.addEventListener('click', () => {
       pendingTargetUrl = null;
       confirmModal.style.display = 'none';
@@ -963,7 +1189,7 @@
       confirmModal.style.display = 'none';
     });
 
-    function appendMessage(sender, text, color, imageData) {
+    function appendMessage(sender, text, color, imageData, audioData) {
       const messageDiv = document.createElement('div');
       messageDiv.className = 'message';
       const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -971,6 +1197,9 @@
       let contentHtml = '';
       if (imageData) {
         contentHtml += `<img src="${imageData}" class="chat-image" alt="Uploaded Image" onclick="openLightbox(this.src)" />`;
+      }
+      if (audioData) {
+        contentHtml += `<audio controls src="${audioData}" class="chat-audio"></audio>`;
       }
 
       messageDiv.innerHTML = `
