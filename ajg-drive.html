@@ -133,8 +133,12 @@
         }
 
         function saveData() {
-            localStorage.setItem('ajg_folders', JSON.stringify(folders));
-            localStorage.setItem('ajg_files', JSON.stringify(files));
+            try {
+                localStorage.setItem('ajg_folders', JSON.stringify(folders));
+                localStorage.setItem('ajg_files', JSON.stringify(files));
+            } catch (e) {
+                showAlert("Warning: Local storage limit reached. Some files may not persist on refresh.");
+            }
         }
 
         function render() {
@@ -202,13 +206,9 @@
             const file = files.find(f => f.id == fileId);
             if (!file) return;
 
-            // Store file temporarily in localStorage under a shared registry so any visitor can access it by ID
-            let sharedRegistry = JSON.parse(localStorage.getItem('ajg_shared_files')) || {};
-            sharedRegistry[file.id] = { name: file.name, size: file.size, data: file.data };
-            localStorage.setItem('ajg_shared_files', JSON.stringify(sharedRegistry));
-
-            // Generate clean short hash link
-            const cleanUrl = window.location.origin + window.location.pathname + '#shared=' + file.id;
+            // Pack file details directly into URL payload without saving to localStorage quota
+            const payload = encodeURIComponent(btoa(JSON.stringify({ name: file.name, size: file.size, data: file.data })));
+            const cleanUrl = window.location.origin + window.location.pathname + '#shared=' + payload;
             
             document.getElementById('shareLinkInput').value = cleanUrl;
             document.getElementById('tinyStatus').innerText = '';
@@ -260,22 +260,23 @@
         function checkPublicRoute() {
             const hash = window.location.hash;
             if (hash.startsWith('#shared=')) {
-                const fileId = hash.replace('#shared=', '');
-                
-                // Check local registry or main files
-                let sharedRegistry = JSON.parse(localStorage.getItem('ajg_shared_files')) || {};
-                let fileObj = sharedRegistry[fileId] || files.find(f => f.id == fileId);
+                try {
+                    const encodedData = hash.replace('#shared=', '');
+                    const fileObj = JSON.parse(atob(decodeURIComponent(encodedData)));
 
-                if (fileObj) {
-                    activeDownloadData = fileObj;
-                    document.getElementById('portalFileName').innerText = fileObj.name;
-                    document.getElementById('portalFileSize').innerText = fileObj.size;
-                    
-                    document.getElementById('appContainer').classList.add('hidden');
-                    document.getElementById('downloadPortal').classList.remove('hidden');
-                } else {
-                    showAlert("File not found or link has expired.");
+                    if (fileObj && fileObj.data) {
+                        activeDownloadData = fileObj;
+                        document.getElementById('portalFileName').innerText = fileObj.name;
+                        document.getElementById('portalFileSize').innerText = fileObj.size;
+                        
+                        document.getElementById('appContainer').classList.add('hidden');
+                        document.getElementById('downloadPortal').classList.remove('hidden');
+                        return;
+                    }
+                } catch (e) {
+                    console.error(e);
                 }
+                showAlert("File not found or link is invalid.");
             }
         }
 
