@@ -27,6 +27,7 @@
       --blurple-hover: #4752c4;
       --green: #23a55a;
       --red: #f23f43;
+      --link-blue: #00b0f4;
     }
 
     body {
@@ -321,6 +322,34 @@
       font-size: 14px;
       margin-top: 4px;
       word-break: break-word;
+      white-space: pre-wrap;
+    }
+
+    /* Clickable Link Styling */
+    .chat-link {
+      color: var(--link-blue);
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    .chat-link:hover {
+      opacity: 0.85;
+    }
+
+    /* Image Attachment Styling */
+    .chat-image {
+      max-width: 320px;
+      max-height: 240px;
+      border-radius: 8px;
+      margin-top: 6px;
+      cursor: pointer;
+      display: block;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      object-fit: contain;
+      background: #111;
+      transition: transform 0.15s ease;
+    }
+    .chat-image:hover {
+      transform: scale(1.01);
     }
 
     .input-area {
@@ -330,18 +359,34 @@
     .input-wrapper {
       background-color: var(--bg-input);
       border-radius: 8px;
-      padding: 12px 16px;
+      padding: 10px 16px;
       display: flex;
       align-items: center;
+      gap: 12px;
     }
 
-    .input-wrapper input {
+    .input-wrapper input[type="text"] {
       width: 100%;
       background: transparent;
       border: none;
       outline: none;
       color: var(--text-normal);
       font-size: 15px;
+    }
+
+    .attach-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.2s;
+    }
+    .attach-btn:hover {
+      color: var(--text-heading);
     }
 
     .user-list {
@@ -375,11 +420,87 @@
       color: var(--text-muted);
       margin-left: auto;
     }
+
+    /* Lightbox Modal */
+    .lightbox {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.9);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      cursor: zoom-out;
+    }
+    .lightbox img {
+      max-width: 90%;
+      max-height: 90%;
+      border-radius: 4px;
+    }
+
+    /* Custom Confirm Modal for Safe Links */
+    .confirm-modal {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1050;
+    }
+    .confirm-card {
+      background-color: var(--bg-sidebar);
+      padding: 24px;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      text-align: center;
+    }
+    .confirm-card h3 {
+      color: var(--text-heading);
+      margin-bottom: 12px;
+      font-size: 18px;
+    }
+    .confirm-card p {
+      color: var(--text-normal);
+      font-size: 14px;
+      margin-bottom: 20px;
+      word-break: break-all;
+    }
+    .confirm-actions {
+      display: flex;
+      gap: 10px;
+    }
+    .confirm-btn-cancel {
+      flex: 1;
+      background: var(--bg-input);
+      color: var(--text-heading);
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 10px;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .confirm-btn-ok {
+      flex: 1;
+      background: var(--blurple);
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .confirm-btn-ok:hover {
+      background: var(--blurple-hover);
+    }
   </style>
 </head>
 <body>
 
-  <!-- Modal Overlay -->
+  <!-- Start / Connect Overlay -->
   <div class="start-overlay" id="start-overlay">
     <div class="start-card">
       <h1>💬 ajg-connect</h1>
@@ -400,6 +521,23 @@
       </div>
 
       <button type="button" class="start-btn" id="action-btn">▶ Host Server</button>
+    </div>
+  </div>
+
+  <!-- Image Lightbox Viewer -->
+  <div class="lightbox" id="lightbox" onclick="this.style.display='none'">
+    <img id="lightbox-img" src="" alt="Full size" />
+  </div>
+
+  <!-- Safe Link Warning Modal -->
+  <div class="confirm-modal" id="confirm-modal">
+    <div class="confirm-card">
+      <h3>⚠️ External Link Warning</h3>
+      <p id="confirm-url-text">This link will take you to an external website. Are you sure you want to proceed?</p>
+      <div class="confirm-actions">
+        <button type="button" class="confirm-btn-cancel" id="confirm-cancel">Cancel</button>
+        <button type="button" class="confirm-btn-ok" id="confirm-ok">Proceed</button>
+      </div>
     </div>
   </div>
 
@@ -437,13 +575,15 @@
             <span class="author">System</span>
             <span class="timestamp">Live</span>
           </div>
-          <div class="text">Welcome to ajg-connect! Type <b>/clear</b> in chat to clear your messages (10s cooldown).</div>
+          <div class="text">Welcome to ajg-connect! HTTPS links are now safely clickable with warnings. Paste or attach images, or type <b>/clear</b>.</div>
         </div>
       </div>
     </div>
 
     <div class="input-area">
       <form id="chat-form" class="input-wrapper">
+        <input type="file" id="image-file-input" accept="image/*" style="display: none;" />
+        <button type="button" class="attach-btn" id="attach-btn" title="Upload Image" disabled>📎</button>
         <input type="text" id="message-input" placeholder="Connect to chat..." autocomplete="off" disabled />
       </form>
     </div>
@@ -468,6 +608,9 @@
     const messagesArea = document.getElementById('messages-area');
     const chatForm = document.getElementById('chat-form');
     const messageInput = document.getElementById('message-input');
+    const attachBtn = document.getElementById('attach-btn');
+    const imageFileInput = document.getElementById('image-file-input');
+
     const myUsernameEl = document.getElementById('my-username');
     const myProfileAvatar = document.getElementById('my-profile-avatar');
     const myRoomCodeEl = document.getElementById('my-room-code');
@@ -476,8 +619,18 @@
     const usersContainer = document.getElementById('users-container');
     const serverBadge = document.getElementById('server-badge');
     const serverTitle = document.getElementById('server-title');
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImg = document.getElementById('lightbox-img');
 
-    let currentMode = 'server'; // 'server', 'private', or 'join'
+    // Confirm Modal elements
+    const confirmModal = document.getElementById('confirm-modal');
+    const confirmUrlText = document.getElementById('confirm-url-text');
+    const confirmCancel = document.getElementById('confirm-cancel');
+    const confirmOk = document.getElementById('confirm-ok');
+
+    let pendingTargetUrl = null;
+
+    let currentMode = 'server';
     let peer = null;
     let isHost = false;
     let connections = [];
@@ -616,7 +769,8 @@
       connStatusEl.style.color = 'var(--green)';
       myRoomCodeEl.textContent = `Code: ${code}`;
       messageInput.disabled = false;
-      messageInput.placeholder = "Message #global-chat (or type /clear)";
+      attachBtn.disabled = false;
+      messageInput.placeholder = "Message #global-chat (or paste image /type /clear)";
       
       if (isHost) {
         appendMessage('System', `Room live! Share join code: ${code}`, '#5865f2');
@@ -658,7 +812,7 @@
         data.list.forEach(u => addUser(u));
       } 
       else if (data.type === 'message') {
-        appendMessage(data.sender, data.text, data.color);
+        appendMessage(data.sender, data.text, data.color, data.image);
         
         if (isHost) {
           broadcastData(data, sourceConn);
@@ -696,10 +850,46 @@
       });
     }
 
+    attachBtn.addEventListener('click', () => {
+      imageFileInput.click();
+    });
+
+    imageFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) processAndSendImage(file);
+      imageFileInput.value = '';
+    });
+
+    // Paste listener for images directly into chat input
+    messageInput.addEventListener('paste', (e) => {
+      const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+      for (let item of items) {
+        if (item.type.indexOf('image') === 0) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (file) processAndSendImage(file);
+          break;
+        }
+      }
+    });
+
+    function processAndSendImage(file) {
+      if (file.size > 2 * 1024 * 1024) {
+        appendMessage('System', 'Image file is too large! Please choose an image under 2MB.', 'var(--red)');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const base64Data = event.target.result;
+        sendChatMessage('', base64Data);
+      };
+      reader.readAsDataURL(file);
+    }
+
     chatForm.addEventListener('submit', (e) => {
       e.preventDefault();
       const text = messageInput.value.trim();
-
       if (!text || !currentUser) return;
 
       if (text === '/clear') {
@@ -719,38 +909,96 @@
         return;
       }
 
+      sendChatMessage(text, null);
+      messageInput.value = '';
+    });
+
+    function sendChatMessage(text, imageData) {
       const msgData = {
         type: 'message',
         sender: currentUser.name,
         text: text,
+        image: imageData,
         color: currentUser.color
       };
 
-      appendMessage(currentUser.name, text, currentUser.color);
+      appendMessage(currentUser.name, text, currentUser.color, imageData);
       broadcastData(msgData);
-      messageInput.value = '';
+    }
+
+    // Helper function to parse text and inject safe clickable links
+    function renderFormattedText(containerEl, text) {
+      // Split text by whitespace to safely detect https:// URLs
+      const tokens = text.split(/(\s+)/);
+      tokens.forEach(token => {
+        if (token.startsWith('https://')) {
+          const link = document.createElement('span');
+          link.className = 'chat-link';
+          link.textContent = token;
+          link.addEventListener('click', (e) => {
+            e.preventDefault();
+            pendingTargetUrl = token;
+            confirmUrlText.textContent = `This link will take you to ${token}. Are you sure you want to proceed?`;
+            confirmModal.style.display = 'flex';
+          });
+          containerEl.appendChild(link);
+        } else {
+          const textNode = document.createTextNode(token);
+          containerEl.appendChild(textNode);
+        }
+      });
+    }
+
+    // Confirm modal event handlers
+    confirmCancel.addEventListener('click', () => {
+      pendingTargetUrl = null;
+      confirmModal.style.display = 'none';
     });
 
-    function appendMessage(sender, text, color) {
+    confirmOk.addEventListener('click', () => {
+      if (pendingTargetUrl) {
+        window.open(pendingTargetUrl, '_blank');
+        pendingTargetUrl = null;
+      }
+      confirmModal.style.display = 'none';
+    });
+
+    function appendMessage(sender, text, color, imageData) {
       const messageDiv = document.createElement('div');
       messageDiv.className = 'message';
       const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       
+      let contentHtml = '';
+      if (imageData) {
+        contentHtml += `<img src="${imageData}" class="chat-image" alt="Uploaded Image" onclick="openLightbox(this.src)" />`;
+      }
+
       messageDiv.innerHTML = `
         <div class="avatar" style="background-color: ${color || '#5865f2'};">
           ${sender.charAt(0).toUpperCase()}
         </div>
-        <div class="message-content">
+        <div class="message-content" style="flex:1; overflow:hidden;">
           <div class="message-header">
             <span class="author">${sender}</span>
             <span class="timestamp">${time}</span>
           </div>
-          <div class="text"></div>
+          ${text ? `<div class="text"></div>` : ''}
+          ${contentHtml}
         </div>
       `;
-      messageDiv.querySelector('.text').textContent = text;
+
+      if (text) {
+        const textContainer = messageDiv.querySelector('.text');
+        renderFormattedText(textContainer, text);
+      }
+
       messagesArea.appendChild(messageDiv);
       messagesArea.scrollTop = messagesArea.scrollHeight;
+    }
+
+    function openLightbox(src) {
+      lightboxImg.src = src;
+      lightbox.style.display = 'flex';
     }
   </script>
 </body>
