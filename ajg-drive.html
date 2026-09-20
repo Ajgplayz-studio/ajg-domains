@@ -133,8 +133,9 @@
 
         .storage-progress {
             background-color: var(--primary-color);
-            width: 35%;
+            width: 15%;
             height: 100%;
+            transition: width 0.3s ease;
         }
 
         /* --- MAIN CONTENT AREA --- */
@@ -266,6 +267,8 @@
             background: #ffffff;
             position: relative;
             transition: border-color 0.2s, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column;
         }
 
         .file-card:hover {
@@ -280,6 +283,13 @@
             align-items: center;
             justify-content: center;
             border-bottom: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+
+        .file-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
         .file-preview span {
@@ -292,6 +302,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            background: #ffffff;
         }
 
         .file-meta h4 {
@@ -301,7 +312,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 120px;
+            max-width: 110px;
         }
 
         .file-meta p {
@@ -309,17 +320,22 @@
             color: var(--text-secondary);
         }
 
+        .action-icons {
+            display: flex;
+            gap: 6px;
+        }
+
         .action-icon {
             cursor: pointer;
             color: var(--text-secondary);
-            font-size: 20px;
+            font-size: 18px;
         }
 
         .action-icon:hover {
             color: var(--primary-color);
         }
 
-        /* Modal / Dialog */
+        /* --- MODAL DIALOGS --- */
         .modal {
             display: none;
             position: fixed;
@@ -347,14 +363,30 @@
             font-size: 18px;
         }
 
-        .modal-content input, .modal-content textarea {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
+        .drop-zone {
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
             margin-bottom: 16px;
-            outline: none;
-            font-size: 14px;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+
+        .drop-zone:hover {
+            background-color: var(--surface-color);
+            border-color: var(--primary-color);
+        }
+
+        .drop-zone span {
+            font-size: 40px;
+            color: var(--primary-color);
+            margin-bottom: 8px;
+        }
+
+        .drop-zone p {
+            font-size: 13px;
+            color: var(--text-secondary);
         }
 
         .link-box {
@@ -364,9 +396,14 @@
         }
 
         .link-box input {
-            margin-bottom: 0;
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
             background-color: var(--surface-color);
             color: var(--text-secondary);
+            outline: none;
+            font-size: 14px;
         }
 
         .modal-buttons {
@@ -417,9 +454,9 @@
         </ul>
 
         <div class="storage-info">
-            <p><strong id="storageText">3.5 GB</strong> of 15 GB used</p>
+            <p><strong id="storageText">0.0 MB</strong> used</p>
             <div class="storage-bar">
-                <div class="storage-progress"></div>
+                <div class="storage-progress" id="storageProgress"></div>
             </div>
         </div>
     </aside>
@@ -432,7 +469,7 @@
                 <input type="text" id="searchInput" placeholder="Search in ajg-drive" onkeyup="filterFiles()">
             </div>
             <div class="user-profile">
-                <span class="material-icons-outlined" style="color: var(--text-secondary); cursor: pointer;">settings</span>
+                <span class="material-icons-outlined" style="color: var(--text-secondary); cursor: pointer;" title="Settings">settings</span>
                 <div class="avatar">AJ</div>
             </div>
         </header>
@@ -451,12 +488,14 @@
     <!-- UPLOAD MODAL -->
     <div class="modal" id="uploadModal">
         <div class="modal-content">
-            <h3>Upload New File content</h3>
-            <input type="text" id="fileNameInput" placeholder="File name (e.g., notes.txt)">
-            <textarea id="fileContentInput" rows="4" placeholder="Enter text content for the file..."></textarea>
+            <h3>Upload File from Device</h3>
+            <div class="drop-zone" onclick="document.getElementById('deviceFileInput').click()">
+                <span class="material-icons-outlined">cloud_upload</span>
+                <p>Click here to browse files from your computer</p>
+                <input type="file" id="deviceFileInput" style="display: none;" onchange="handleFileSelect(event)">
+            </div>
             <div class="modal-buttons">
                 <button onclick="closeUploadModal()">Cancel</button>
-                <button class="primary" onclick="saveFile()">Save & Upload</button>
             </div>
         </div>
     </div>
@@ -465,31 +504,43 @@
     <div class="modal" id="shareModal">
         <div class="modal-content">
             <h3>Shareable Download Link</h3>
-            <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">Shortened download link:</p>
+            <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">Shortened URL for sharing:</p>
             <div class="link-box">
                 <input type="text" id="shortLinkInput" readonly>
-                <button class="primary" onclick="copyLink()">Copy</button>
             </div>
             <div class="modal-buttons">
-                <button onclick="closeShareModal()">Close</button>
+                <button onclick="closeShareModal()">Cancel</button>
+                <button class="primary" onclick="copyAndDownload()">Copy & Download</button>
             </div>
         </div>
     </div>
 
     <script>
-        // Database / LocalStorage Setup
+        // LocalStorage database configuration
         let folders = JSON.parse(localStorage.getItem('ajg_folders')) || [
-            { id: 1, name: "Project Alpha" },
-            { id: 2, name: "Personal Finances" }
+            { id: 1, name: "Documents" },
+            { id: 2, name: "Images & Media" }
         ];
 
-        let files = JSON.parse(localStorage.getItem('ajg_files')) || [
-            { id: 1, name: "Welcome_Notes.txt", type: "notes", size: "15 KB", content: "Welcome to ajg-drive! Your data is safely stored in local browser database." }
-        ];
+        let files = JSON.parse(localStorage.getItem('ajg_files')) || [];
+        let activeShareFile = null;
 
         function saveData() {
-            localStorage.setItem('ajg_folders', JSON.stringify(folders));
-            localStorage.setItem('ajg_files', JSON.stringify(files));
+            try {
+                localStorage.setItem('ajg_folders', JSON.stringify(folders));
+                localStorage.setItem('ajg_files', JSON.stringify(files));
+            } catch (e) {
+                alert("Storage limit reached! LocalStorage is full.");
+            }
+            updateStorageStats();
+        }
+
+        function updateStorageStats() {
+            let totalBytes = files.reduce((acc, f) => acc + (f.sizeBytes || 0), 0);
+            let mb = (totalBytes / (1024 * 1024)).toFixed(1);
+            document.getElementById('storageText').innerText = mb + ' MB';
+            let percent = Math.min((totalBytes / (50 * 1024 * 1024)) * 100, 100); // 50MB quota visual
+            document.getElementById('storageProgress').style.width = percent + '%';
         }
 
         function render() {
@@ -497,36 +548,63 @@
             const folderGrid = document.getElementById('folderGrid');
             folderGrid.innerHTML = folders.map(f => `
                 <div class="card">
-                    <span class="material-icons-outlined">folder</span>
+                    <span class="material-icons-outlined" style="color: var(--primary-color);">folder</span>
                     <span class="card-title">${f.name}</span>
                 </div>
             `).join('');
 
             // Render Files
             const fileGrid = document.getElementById('fileGrid');
-            fileGrid.innerHTML = files.map(file => `
-                <div class="file-card">
-                    <div class="file-preview">
-                        <span class="material-icons-outlined">${getFileIcon(file.type)}</span>
-                    </div>
-                    <div class="file-details">
-                        <div class="file-meta">
-                            <h4>${file.name}</h4>
-                            <p>${file.size}</p>
+            if (files.length === 0) {
+                fileGrid.innerHTML = `<p style="font-size: 14px; color: var(--text-secondary); grid-column: 1/-1; text-align: center; padding: 40px;">No files uploaded yet. Click "+ New" to add files.</p>`;
+                updateStorageStats();
+                return;
+            }
+
+            fileGrid.innerHTML = files.map(file => {
+                let isImage = file.type && file.type.startsWith('image/');
+                let previewContent = isImage 
+                    ? `<img src="${file.data}" alt="${file.name}">` 
+                    : `<span class="material-icons-outlined">${getFileIcon(file.name)}</span>`;
+
+                return `
+                    <div class="file-card">
+                        <div class="file-preview">
+                            ${previewContent}
                         </div>
-                        <span class="material-icons-outlined action-icon" title="Get Shareable Link" onclick="openShareModal('${file.id}')">link</span>
+                        <div class="file-details">
+                            <div class="file-meta">
+                                <h4 title="${file.name}">${file.name}</h4>
+                                <p>${formatBytes(file.sizeBytes || 0)}</p>
+                            </div>
+                            <div class="action-icons">
+                                <span class="material-icons-outlined action-icon" title="Get Short Link" onclick="openShareModal('${file.id}')">link</span>
+                                <span class="material-icons-outlined action-icon" title="Delete File" onclick="deleteFile('${file.id}')">delete</span>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
+
+            updateStorageStats();
         }
 
-        function getFileIcon(type) {
-            switch(type) {
-                case 'document': return 'description';
-                case 'image': return 'image';
-                case 'table': return 'table_chart';
-                default: return 'insert_drive_file';
-            }
+        function getFileIcon(filename) {
+            let ext = filename.split('.').pop().toLowerCase();
+            if (['pdf'].includes(ext)) return 'picture_as_pdf';
+            if (['mp4', 'mov', 'avi'].includes(ext)) return 'movie';
+            if (['mp3', 'wav'].includes(ext)) return 'audiotrack';
+            if (['zip', 'rar', 'tar'].includes(ext)) return 'folder_zip';
+            if (['xls', 'xlsx', 'csv'].includes(ext)) return 'table_chart';
+            if (['doc', 'docx', 'txt'].includes(ext)) return 'description';
+            return 'insert_drive_file';
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            let k = 1024, sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            let i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
         }
 
         function openUploadModal() {
@@ -535,74 +613,80 @@
 
         function closeUploadModal() {
             document.getElementById('uploadModal').classList.remove('active');
-            document.getElementById('fileNameInput').value = '';
-            document.getElementById('fileContentInput').value = '';
+            document.getElementById('deviceFileInput').value = '';
         }
 
-        function saveFile() {
-            const name = document.getElementById('fileNameInput').value.trim();
-            const content = document.getElementById('fileContentInput').value;
-            if (!name) return;
+        // Handle device file upload via FileReader API
+        function handleFileSelect(event) {
+            const uploadedFile = event.target.files[0];
+            if (!uploadedFile) return;
 
-            let fileType = 'notes';
-            if (name.endsWith('.png') || name.endsWith('.jpg')) fileType = 'image';
-            if (name.endsWith('.xlsx')) fileType = 'table';
-            if (name.endsWith('.docx')) fileType = 'document';
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const base64Data = e.target.result;
+                
+                const newFileRecord = {
+                    id: 'file_' + Date.now(),
+                    name: uploadedFile.name,
+                    type: uploadedFile.type,
+                    sizeBytes: uploadedFile.size,
+                    data: base64Data
+                };
 
-            const newFile = {
-                id: Date.now(),
-                name: name,
-                type: fileType,
-                size: (content.length > 0 ? (content.length / 1024).toFixed(1) + ' KB' : '1 KB'),
-                content: content || "Empty file content."
+                files.push(newFileRecord);
+                saveData();
+                closeUploadModal();
+                render();
             };
+            reader.readAsDataURL(uploadedFile);
+        }
 
-            files.push(newFile);
+        function deleteFile(fileId) {
+            files = files.filter(f => f.id !== fileId);
             saveData();
-            closeUploadModal();
             render();
         }
 
-        // Link Generation & Shortener Logic
+        // Link generation & shortener simulation
         function openShareModal(fileId) {
-            const file = files.find(f => f.id == fileId);
-            if (!file) return;
+            activeShareFile = files.find(f => f.id === fileId);
+            if (!activeShareFile) return;
 
-            // Generate direct data URL for downloading
-            const blob = new Blob([file.content], { type: 'text/plain' });
-            const blobUrl = URL.createObjectURL(blob);
-
-            // Generate simulated short link using hash suffix
-            const randomCode = Math.random().toString(36).substring(2, 8);
-            const shortUrl = `https://ajg.to/dl/${randomCode}`;
-
-            // Temporarily store direct file download trigger to the short link simulation
+            let randomHash = Math.random().toString(36).substring(2, 8);
+            let shortUrl = `https://ajg.to/${randomHash}`;
             document.getElementById('shortLinkInput').value = shortUrl;
-            
-            // Allow user to trigger actual download if they click or copy
-            window.currentDownloadBlobUrl = blobUrl;
-            window.currentFileName = file.name;
-
             document.getElementById('shareModal').classList.add('active');
         }
 
         function closeShareModal() {
             document.getElementById('shareModal').classList.remove('active');
+            activeShareFile = null;
         }
 
-        function copyLink() {
+        function copyAndDownload() {
+            if (!activeShareFile) return;
+
             const input = document.getElementById('shortLinkInput');
-            navigator.clipboard.writeText(input.value);
             
-            // Trigger actual download locally as part of sharing simulation
+            // Fallback clipboard copy
+            const textArea = document.createElement("textarea");
+            textArea.value = input.value;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+            } catch (err) {}
+            document.body.removeChild(textArea);
+
+            // Trigger file download automatically
             const a = document.createElement('a');
-            a.href = window.currentDownloadBlobUrl;
-            a.download = window.currentFileName;
+            a.href = activeShareFile.data;
+            a.download = activeShareFile.name;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
 
-            alert("Shortened link copied to clipboard & file download triggered!");
+            alert("Shortened link copied to clipboard and download started!");
             closeShareModal();
         }
 
@@ -612,11 +696,13 @@
             
             files.forEach((file, index) => {
                 const matches = file.name.toLowerCase().includes(query);
-                fileCards[index].style.display = matches ? 'block' : 'none';
+                if (fileCards[index]) {
+                    fileCards[index].style.display = matches ? 'flex' : 'none';
+                }
             });
         }
 
-        // Run app on load
+        // Initialize application on load
         render();
     </script>
 </body>
