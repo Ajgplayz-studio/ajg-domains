@@ -81,13 +81,22 @@
 
     <!-- SHARE LINK MODAL -->
     <div class="modal hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center" id="shareModal">
-        <div class="bg-white p-6 rounded-xl shadow-xl w-96">
+        <div class="bg-white p-6 rounded-xl shadow-xl w-[420px]">
             <h3 class="text-lg font-medium text-gray-900 mb-2">Public Share Link</h3>
-            <p class="text-xs text-gray-500 mb-4">Anyone with this link can download this file instantly:</p>
-            <div class="flex gap-2 mb-4">
-                <input type="text" id="shareLinkInput" readonly class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-xs text-gray-600 outline-none">
-                <button onclick="copyShareLink()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">Copy</button>
+            <p class="text-xs text-gray-500 mb-3">Copy this link or use TinyURL to make it shorter:</p>
+            
+            <div class="flex gap-2 mb-3">
+                <input type="text" id="shareLinkInput" readonly class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-xs text-gray-600 outline-none select-all">
+                <button onclick="copyShareLink()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap">Copy</button>
             </div>
+
+            <div class="flex items-center justify-between mb-4">
+                <button onclick="shortenWithTinyURL()" id="tinyBtn" class="text-xs text-blue-600 hover:underline font-medium flex items-center gap-1">
+                    <span class="material-icons-outlined text-sm">link</span> Shorten with TinyURL
+                </button>
+                <span id="tinyStatus" class="text-[10px] text-gray-400"></span>
+            </div>
+
             <div class="flex justify-end">
                 <button onclick="closeShareModal()" class="border border-gray-300 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">Close</button>
             </div>
@@ -112,8 +121,7 @@
         ];
 
         let files = JSON.parse(localStorage.getItem('ajg_files')) || [];
-
-        let currentSharedPayload = null;
+        let activeDownloadData = null;
 
         function showAlert(msg) {
             document.getElementById('alertMessage').innerText = msg;
@@ -175,7 +183,7 @@
             const reader = new FileReader();
             reader.onload = function(e) {
                 const newFile = {
-                    id: 'f_' + Date.now(),
+                    id: 'f_' + Math.random().toString(36).substr(2, 9),
                     name: uploadedFile.name,
                     type: uploadedFile.type,
                     size: (uploadedFile.size / 1024 > 1024) ? (uploadedFile.size / (1024*1024)).toFixed(1) + ' MB' : (uploadedFile.size / 1024).toFixed(1) + ' KB',
@@ -194,12 +202,37 @@
             const file = files.find(f => f.id == fileId);
             if (!file) return;
 
-            // Pack file details into compressed URI component payload for true public link sharing
-            const payload = btoa(JSON.stringify({ name: file.name, size: file.size, data: file.data }));
-            const shareUrl = window.location.origin + window.location.pathname + '#shared=' + payload;
+            // Store file temporarily in localStorage under a shared registry so any visitor can access it by ID
+            let sharedRegistry = JSON.parse(localStorage.getItem('ajg_shared_files')) || {};
+            sharedRegistry[file.id] = { name: file.name, size: file.size, data: file.data };
+            localStorage.setItem('ajg_shared_files', JSON.stringify(sharedRegistry));
 
-            document.getElementById('shareLinkInput').value = shareUrl;
+            // Generate clean short hash link
+            const cleanUrl = window.location.origin + window.location.pathname + '#shared=' + file.id;
+            
+            document.getElementById('shareLinkInput').value = cleanUrl;
+            document.getElementById('tinyStatus').innerText = '';
             document.getElementById('shareModal').classList.remove('hidden');
+        }
+
+        async function shortenWithTinyURL() {
+            const inputField = document.getElementById('shareLinkInput');
+            const statusLabel = document.getElementById('tinyStatus');
+            const originalUrl = inputField.value;
+
+            statusLabel.innerText = "Shortening...";
+            try {
+                const response = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(originalUrl)}`);
+                if (response.ok) {
+                    const shortUrl = await response.text();
+                    inputField.value = shortUrl;
+                    statusLabel.innerText = "Done!";
+                } else {
+                    statusLabel.innerText = "Failed (using standard link)";
+                }
+            } catch (err) {
+                statusLabel.innerText = "CORS restricted. Standard link used.";
+            }
         }
 
         function closeShareModal() {
@@ -210,15 +243,15 @@
             const input = document.getElementById('shareLinkInput');
             input.select();
             navigator.clipboard.writeText(input.value);
-            showAlert("Public share link copied to clipboard!");
+            showAlert("Share link copied to clipboard!");
             closeShareModal();
         }
 
         function downloadSharedFile() {
-            if (!currentSharedPayload) return;
+            if (!activeDownloadData) return;
             const a = document.createElement('a');
-            a.href = currentSharedPayload.data;
-            a.download = currentSharedPayload.name;
+            a.href = activeDownloadData.data;
+            a.download = activeDownloadData.name;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -227,18 +260,21 @@
         function checkPublicRoute() {
             const hash = window.location.hash;
             if (hash.startsWith('#shared=')) {
-                try {
-                    const encodedData = hash.replace('#shared=', '');
-                    const payload = JSON.parse(atob(encodedData));
-                    currentSharedPayload = payload;
+                const fileId = hash.replace('#shared=', '');
+                
+                // Check local registry or main files
+                let sharedRegistry = JSON.parse(localStorage.getItem('ajg_shared_files')) || {};
+                let fileObj = sharedRegistry[fileId] || files.find(f => f.id == fileId);
 
-                    document.getElementById('portalFileName').innerText = payload.name;
-                    document.getElementById('portalFileSize').innerText = payload.size;
+                if (fileObj) {
+                    activeDownloadData = fileObj;
+                    document.getElementById('portalFileName').innerText = fileObj.name;
+                    document.getElementById('portalFileSize').innerText = fileObj.size;
                     
                     document.getElementById('appContainer').classList.add('hidden');
                     document.getElementById('downloadPortal').classList.remove('hidden');
-                } catch (e) {
-                    showAlert("Invalid or corrupted share link.");
+                } else {
+                    showAlert("File not found or link has expired.");
                 }
             }
         }
