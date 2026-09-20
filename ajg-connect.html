@@ -3,132 +3,182 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AJG-Connect</title>
+  <title>AJG-Connect - Ultimate Cloud Suite</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    /* Custom Scrollbar for chat */
-    ::-webkit-scrollbar { width: 8px; height: 8px; }
-    ::-webkit-scrollbar-track { background: #2d3748; }
-    ::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: #718096; }
-    body { background-color: #1a202c; color: white; font-family: 'Inter', sans-serif; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #1f2937; }
+    ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+    body { background-color: #111827; color: #f3f4f6; font-family: 'Inter', sans-serif; }
   </style>
 </head>
-<body class="h-screen flex overflow-hidden selection:bg-emerald-500 selection:text-white">
+<body class="h-screen flex overflow-hidden selection:bg-indigo-500 selection:text-white">
 
-  <div id="authModal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-95">
-    <div class="bg-gray-800 p-8 rounded-lg shadow-2xl w-96 max-w-full text-center border border-gray-700">
-      <h1 class="text-3xl font-bold text-emerald-500 mb-2">AJG-Connect</h1>
-      <p id="authSubtitle" class="text-gray-400 mb-6">Log in to join your communities</p>
+  <div id="authModal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-950 bg-opacity-95 backdrop-blur-md">
+    <div class="bg-gray-900 border border-gray-800 p-8 rounded-2xl shadow-2xl w-96 max-w-full text-center">
+      <div class="w-16 h-16 bg-indigo-600 rounded-2xl mx-auto flex items-center justify-center mb-4 shadow-lg shadow-indigo-500/30">
+        <i class="fa-solid fa-comments text-2xl text-white"></i>
+      </div>
+      <h1 class="text-2xl font-black text-white tracking-tight mb-1">AJG-Connect</h1>
+      <p id="authSubtitle" class="text-gray-400 text-sm mb-6">Connect across communities & friends</p>
       
-      <!-- The form submits via the window.handleAuthSubmit function -->
       <form id="authForm" onsubmit="window.handleAuthSubmit(event)">
-        <input type="text" id="authUsername" placeholder="Username" class="w-full bg-gray-900 text-white border border-gray-700 rounded p-3 mb-4 focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
-        <input type="password" id="authPassword" placeholder="Password" class="w-full bg-gray-900 text-white border border-gray-700 rounded p-3 mb-4 focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
+        <input type="text" id="authUsername" placeholder="Username" class="w-full bg-gray-950 text-white border border-gray-800 rounded-xl px-4 py-3 mb-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" required autocomplete="username">
+        <input type="password" id="authPassword" placeholder="Password" class="w-full bg-gray-950 text-white border border-gray-800 rounded-xl px-4 py-3 mb-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" required autocomplete="current-password">
         
-        <div id="authError" class="hidden bg-red-500 bg-opacity-20 border border-red-500 text-red-400 p-3 rounded mb-4 text-sm font-semibold"></div>
+        <div id="authError" class="hidden bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl mb-4 text-xs font-medium"></div>
         
-        <button type="submit" id="authSubmitBtn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded transition-colors shadow-lg">
+        <button type="submit" id="authSubmitBtn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-indigo-600/20 text-sm">
           Log In
         </button>
       </form>
       
-      <div class="mt-6 text-sm text-gray-400">
+      <div class="mt-6 text-xs text-gray-400">
         <span id="authToggleText">Need an account?</span>
-        <!-- Button toggle works natively -->
-        <button type="button" id="authToggleBtn" onclick="window.toggleAuthMode()" class="text-emerald-400 hover:text-emerald-300 font-bold hover:underline ml-1">Register</button>
+        <button type="button" id="authToggleBtn" onclick="window.toggleAuthMode()" class="text-indigo-400 hover:text-indigo-300 font-bold ml-1 hover:underline">Register</button>
       </div>
     </div>
   </div>
 
   <div id="appContainer" class="hidden w-full h-full flex">
     
-    <!-- Sidebar - Navigation -->
-    <div class="w-16 bg-gray-900 flex flex-col items-center py-4 space-y-4 flex-shrink-0 z-20 border-r border-gray-800">
-      <button class="group w-12 h-12 rounded-3xl bg-indigo-500 flex items-center justify-center text-white shadow">
+    <!-- Navigation Sidebar (Servers & DMs toggle) -->
+    <div class="w-20 bg-gray-950 flex flex-col items-center py-4 space-y-4 flex-shrink-0 z-20 border-r border-gray-800/60">
+      <button onclick="window.switchNavTab('dms')" id="navDmBtn" class="group relative w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg transition-all">
         <i class="fa-solid fa-message text-lg"></i>
+        <div class="absolute left-16 bg-gray-900 text-xs text-white px-2 py-1 rounded shadow-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">Direct Messages</div>
       </button>
-      <div class="w-8 h-1 bg-gray-700 rounded"></div>
-      
-      <!-- Admin Button for Ajgplayz -->
-      <button onclick="window.showAdminPanel()" id="adminBtn" class="hidden group w-12 h-12 rounded-3xl hover:rounded-2xl bg-gray-800 hover:bg-red-500 transition-all flex items-center justify-center text-gray-300 hover:text-white shadow">
+
+      <div class="w-10 h-0.5 bg-gray-800 rounded"></div>
+
+      <!-- Server Navigation Icons Container -->
+      <div id="sidebarServersList" class="flex-1 w-full flex flex-col items-center space-y-3 overflow-y-auto px-2">
+        <!-- Servers populated dynamically -->
+      </div>
+
+      <!-- Add Server Button -->
+      <button onclick="window.openCreateServerModal()" class="w-12 h-12 rounded-2xl bg-gray-900 hover:bg-emerald-600 hover:text-white text-gray-400 flex items-center justify-center transition-all shadow-inner group relative">
+        <i class="fa-solid fa-plus text-lg"></i>
+        <div class="absolute left-16 bg-gray-900 text-xs text-white px-2 py-1 rounded shadow-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">Create Server</div>
+      </button>
+
+      <!-- Admin Panel Trigger -->
+      <button onclick="window.showAdminPanel()" id="adminBtn" class="hidden w-12 h-12 rounded-2xl bg-gray-900 hover:bg-red-600 hover:text-white text-red-400 flex items-center justify-center transition-all shadow-inner group relative">
         <i class="fa-solid fa-shield-halved text-lg"></i>
+        <div class="absolute left-16 bg-gray-900 text-xs text-white px-2 py-1 rounded shadow-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">Admin Panel</div>
       </button>
     </div>
 
-    <!-- Sidebar - Direct Messages List & Search -->
-    <div class="w-64 bg-gray-800 flex flex-col flex-shrink-0 border-r border-gray-700 z-10">
-      <!-- Search Header -->
-      <div class="h-16 flex flex-col justify-center px-4 border-b border-gray-900 shadow-sm shrink-0">
-        <h2 class="font-bold text-gray-100 mb-1">Direct Messages</h2>
+    <!-- Secondary Sidebar (Contextual: DMs list or Server Channels) -->
+    <div class="w-72 bg-gray-900 flex flex-col flex-shrink-0 border-r border-gray-800/60 z-10">
+      <!-- Header -->
+      <div class="h-16 flex items-center justify-between px-4 border-b border-gray-800 shrink-0">
+        <h2 id="secSidebarTitle" class="font-black text-gray-100 truncate text-base tracking-tight">Direct Messages</h2>
+        <button id="secSidebarActionBtn" onclick="window.openCreateChannelModal()" class="hidden text-gray-400 hover:text-white transition-colors p-1"><i class="fa-solid fa-plus"></i></button>
       </div>
       
-      <!-- Live Search Bar -->
-      <div class="p-3 bg-gray-800 border-b border-gray-700">
+      <!-- Live Search Bar (for DMs) -->
+      <div id="dmSearchWrapper" class="p-3 bg-gray-900 border-b border-gray-800/50">
         <div class="relative">
-          <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400 text-sm"></i>
-          <input type="text" id="userSearchInput" oninput="window.handleUserSearch()" placeholder="Search users..." class="w-full bg-gray-900 text-sm text-gray-200 rounded-md pl-9 pr-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500 placeholder-gray-500">
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-500 text-xs"></i>
+          <input type="text" id="userSearchInput" oninput="window.handleUserSearch()" placeholder="Find or start a conversation..." class="w-full bg-gray-950 text-xs text-gray-200 rounded-xl pl-9 pr-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder-gray-500 border border-gray-800">
         </div>
       </div>
       
-      <!-- Populated User List -->
-      <div id="usersList" class="flex-1 overflow-y-auto p-2 space-y-1">
-        <!-- Javascript fills this -->
+      <!-- Content List (Users or Channels) -->
+      <div id="secondaryList" class="flex-1 overflow-y-auto p-2 space-y-1">
+        <!-- Rendered dynamically -->
       </div>
       
       <!-- Current User Profile Footer -->
-      <div class="h-14 bg-gray-900 flex items-center px-3 mt-auto shrink-0 border-t border-gray-700 shadow-inner">
-        <div class="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center mr-2 font-bold select-none text-sm text-white shadow-sm" id="currentUserInitial"></div>
+      <div class="h-16 bg-gray-950 flex items-center px-4 mt-auto shrink-0 border-t border-gray-800/60">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center mr-3 font-bold select-none text-sm text-white shadow-md shadow-indigo-600/20" id="currentUserInitial"></div>
         <div class="flex-1 min-w-0">
           <div class="font-bold text-sm truncate text-gray-200" id="currentUsernameDisplay"></div>
+          <div class="text-[10px] text-emerald-400 font-medium flex items-center"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>Online</div>
         </div>
-        <button onclick="window.logout()" class="text-gray-400 hover:text-red-400 p-2 transition-colors" title="Log Out">
-          <i class="fa-solid fa-right-from-bracket"></i>
+        <button onclick="window.logout()" class="text-gray-400 hover:text-red-400 p-2 transition-colors rounded-lg hover:bg-gray-900" title="Log Out">
+          <i class="fa-solid fa-right-from-bracket text-sm"></i>
         </button>
       </div>
     </div>
 
-    <!-- Main Chat Content Area -->
-    <div class="flex-1 bg-gray-700 flex flex-col relative min-w-0">
+    <!-- Main Chat Workspace -->
+    <div class="flex-1 bg-gray-900 flex flex-col relative min-w-0">
       <!-- Header -->
-      <div class="h-16 flex items-center px-6 border-b border-gray-800 shadow-sm shrink-0 bg-gray-700 z-10">
-        <i class="fa-solid fa-at text-gray-400 mr-2 text-xl hidden" id="chatHeaderIcon"></i>
-        <h2 id="chatHeaderTitle" class="font-bold text-xl text-gray-100">Welcome to AJG-Connect</h2>
+      <div class="h-16 flex items-center justify-between px-6 border-b border-gray-800 shrink-0 bg-gray-900 z-10">
+        <div class="flex items-center min-w-0">
+          <i class="fa-solid fa-hashtag text-gray-500 mr-2.5 text-lg" id="chatHeaderIcon"></i>
+          <h2 id="chatHeaderTitle" class="font-bold text-lg text-gray-100 truncate">Select a chat or server</h2>
+        </div>
+        <div id="chatHeaderSub" class="text-xs text-gray-400 hidden sm:block"></div>
       </div>
 
-      <!-- Messages Stream -->
+      <!-- Messages Stream Feed -->
       <div id="chatMessages" class="flex-1 overflow-y-auto p-6 space-y-4">
-        <div class="flex flex-col items-center justify-center h-full text-gray-400">
-          <div class="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mb-4">
-             <i class="fa-solid fa-message text-2xl text-gray-600"></i>
+        <div class="flex flex-col items-center justify-center h-full text-gray-500">
+          <div class="w-16 h-16 bg-gray-800/50 rounded-2xl flex items-center justify-center mb-3 border border-gray-800">
+             <i class="fa-solid fa-comments text-2xl text-gray-600"></i>
           </div>
-          <p>Search or select a user from the sidebar to start a conversation.</p>
+          <p class="text-sm font-medium">No chat selected yet. Pick a conversation or server channel!</p>
         </div>
       </div>
 
-      <!-- Message Composer -->
-      <div class="p-4 bg-gray-700 shrink-0 border-t border-gray-600">
+      <!-- Message Input Form -->
+      <div class="p-4 bg-gray-900 shrink-0 border-t border-gray-800/60">
         <form id="messageForm" onsubmit="window.handleSendMessage(event)" class="relative hidden">
-          <input type="text" id="messageInput" placeholder="Message..." class="w-full bg-gray-600 text-white rounded-lg pl-4 pr-12 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-inner" autocomplete="off">
-          <button type="submit" class="absolute right-2 top-2 w-8 h-8 rounded flex items-center justify-center text-gray-300 hover:text-emerald-400 hover:bg-gray-500 transition-colors">
-            <i class="fa-solid fa-paper-plane"></i>
+          <input type="text" id="messageInput" placeholder="Message #general..." class="w-full bg-gray-950 text-white text-sm rounded-xl pl-4 pr-12 py-3.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 border border-gray-800 shadow-inner" autocomplete="off">
+          <button type="submit" class="absolute right-2.5 top-2.5 w-8 h-8 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center transition-colors shadow">
+            <i class="fa-solid fa-paper-plane text-xs"></i>
           </button>
         </form>
       </div>
     </div>
     
-    <div id="adminPanel" class="hidden absolute inset-0 bg-gray-900 bg-opacity-95 z-30 flex items-center justify-center backdrop-blur-sm p-8">
-      <div class="bg-gray-800 w-full max-w-4xl h-full max-h-[80vh] rounded-lg shadow-2xl flex flex-col border border-gray-700">
-          <div class="h-16 flex items-center px-6 border-b border-gray-700 shadow-sm shrink-0 justify-between bg-gray-900 rounded-t-lg">
-            <h2 class="font-bold text-xl text-red-500"><i class="fa-solid fa-shield-halved mr-2"></i>Moderator Dashboard - Global DMs</h2>
-            <button onclick="window.closeAdminPanel()" class="text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-xmark text-2xl"></i></button>
+    <div id="createServerModal" class="hidden fixed inset-0 bg-gray-950 bg-opacity-80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="bg-gray-900 border border-gray-800 w-full max-w-md rounded-2xl p-6 shadow-2xl">
+        <h3 class="text-xl font-bold text-white mb-2">Create a Server</h3>
+        <p class="text-gray-400 text-xs mb-4">Your server is where you and your friends hang out. Make yours and start talking.</p>
+        <form onsubmit="window.handleCreateServer(event)">
+          <label class="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-2">Server Name</label>
+          <input type="text" id="serverNameInput" placeholder="e.g. Gamer Lounge" class="w-full bg-gray-950 text-white border border-gray-800 rounded-xl p-3 mb-6 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
+          <div class="flex justify-end space-x-3">
+            <button type="button" onclick="window.closeCreateServerModal()" class="px-4 py-2.5 rounded-xl text-gray-300 hover:bg-gray-800 text-xs font-bold transition-colors">Cancel</button>
+            <button type="submit" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-colors shadow-lg shadow-indigo-600/20">Create</button>
           </div>
-          <div class="flex-1 p-6 overflow-y-auto space-y-4" id="adminDmList">
-            <!-- Dynamic Admin Content -->
-          </div>
+        </form>
       </div>
     </div>
+
+    <div id="createChannelModal" class="hidden fixed inset-0 bg-gray-950 bg-opacity-80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="bg-gray-900 border border-gray-800 w-full max-w-md rounded-2xl p-6 shadow-2xl">
+        <h3 class="text-xl font-bold text-white mb-2">Create Channel</h3>
+        <form onsubmit="window.handleCreateChannel(event)">
+          <label class="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-2">Channel Name</label>
+          <input type="text" id="channelNameInput" placeholder="e.g. memes" class="w-full bg-gray-950 text-white border border-gray-800 rounded-xl p-3 mb-6 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
+          <div class="flex justify-end space-x-3">
+            <button type="button" onclick="window.closeCreateChannelModal()" class="px-4 py-2.5 rounded-xl text-gray-300 hover:bg-gray-800 text-xs font-bold transition-colors">Cancel</button>
+            <button type="submit" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-colors shadow-lg shadow-indigo-600/20">Create Channel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Admin Panel Modal -->
+    <div id="adminPanel" class="hidden fixed inset-0 bg-gray-950 bg-opacity-90 backdrop-blur-md z-50 flex items-center justify-center p-6">
+      <div class="bg-gray-900 border border-gray-800 w-full max-w-4xl h-[80vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+        <div class="h-16 flex items-center px-6 border-b border-gray-800 justify-between bg-gray-950">
+          <h2 class="font-bold text-base text-red-500 flex items-center"><i class="fa-solid fa-shield-halved mr-2"></i>Admin Dashboard - Database Management</h2>
+          <button onclick="window.closeAdminPanel()" class="text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-xmark text-xl"></i></button>
+        </div>
+        <div class="flex-1 p-6 overflow-y-auto space-y-4" id="adminContent">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <script type="module">
@@ -136,34 +186,38 @@
     import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, getDocs, addDoc, onSnapshot, deleteDoc, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'ajg-connect-v2';
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'ajg-connect-ultimate-v4';
     const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
     
     let db = null;
     let auth = null;
     let isOfflineMode = false;
     
-    // Attempt connection
     if (firebaseConfig) {
       try {
         const app = initializeApp(firebaseConfig);
         db = getFirestore(app);
         auth = getAuth(app);
       } catch(e) {
-        console.error("Firebase init fallback to local:", e);
+        console.warn("Fallback to LocalStorage simulation:", e);
         isOfflineMode = true;
       }
     } else {
       isOfflineMode = true;
     }
 
-    // App State
     let isRegisterMode = false;
     window.currentUser = null;
     let allUsers = [];
-    let currentChatUserId = null;
-    let messagesUnsubscribe = null;
+    let allServers = [];
+    let currentNavTab = 'dms'; 
+    let activeChatTargetId = null; 
+    let activeChatType = null; 
+    
     let usersUnsubscribe = null;
+    let serversUnsubscribe = null;
+    let channelsUnsubscribe = null;
+    let messagesUnsubscribe = null;
 
     window.toggleAuthMode = function() {
       isRegisterMode = !isRegisterMode;
@@ -176,12 +230,12 @@
         btn.innerText = 'Register Account';
         toggleText.innerText = 'Already have an account?';
         toggleBtn.innerText = 'Log In';
-        subtitle.innerText = 'Create a new account to join the network';
+        subtitle.innerText = 'Create a secure account to join communities';
       } else {
         btn.innerText = 'Log In';
         toggleText.innerText = 'Need an account?';
         toggleBtn.innerText = 'Register';
-        subtitle.innerText = 'Log in to join your communities';
+        subtitle.innerText = 'Connect across communities & friends';
       }
     };
 
@@ -195,25 +249,23 @@
       if (!username || !password) return;
       
       errorDiv.classList.add('hidden');
-      submitBtn.innerText = 'Connecting...';
+      submitBtn.innerText = 'Authenticating...';
       submitBtn.disabled = true;
       
       try {
         let users = [];
         
-        // Handle database routing
         if (!isOfflineMode) {
             if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                 await signInWithCustomToken(auth, __initial_auth_token);
             } else {
                 await signInAnonymously(auth);
             }
-            if (!auth.currentUser) throw new Error("Could not connect to database security layer.");
+            if (!auth.currentUser) throw new Error("Authentication failed.");
 
-            // Fetch list of users to check duplicates
             const usersRef = collection(db, 'artifacts', appId, 'public', 'data', 'users');
             const snapshot = await getDocs(usersRef);
-            snapshot.forEach(doc => users.push({ id: doc.id, ...doc.data() }));
+            snapshot.forEach(docSnap => users.push({ id: docSnap.id, ...docSnap.data() }));
         } else {
             users = JSON.parse(localStorage.getItem('ajg_users') || '[]');
         }
@@ -221,35 +273,30 @@
         let foundUser = users.find(u => u.username.toLowerCase() === username.toLowerCase());
         
         if (isRegisterMode) {
-            // Register flow
-            if (foundUser) throw new Error("Username already taken! Choose another.");
+            if (foundUser) throw new Error("Username already taken. Choose another.");
             
             const newUser = { username, password, createdAt: Date.now() };
             if (!isOfflineMode) {
-               // Push to Firestore Cloud
                const docRef = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'users'), newUser);
                window.currentUser = { id: docRef.id, ...newUser };
             } else {
-               // Push to LocalStorage
                newUser.id = 'user_' + Date.now();
                users.push(newUser);
                localStorage.setItem('ajg_users', JSON.stringify(users));
                window.currentUser = newUser;
             }
         } else {
-            // Login flow
             if (!foundUser || foundUser.password !== password) throw new Error("Invalid username or password.");
             window.currentUser = foundUser;
         }
         
-        // SUCCESS: Enter App
         document.getElementById('authModal').classList.add('hidden');
         document.getElementById('appContainer').classList.remove('hidden');
         
         startApp();
         
       } catch (err) {
-        errorDiv.innerText = err.message || "Failed to connect to database.";
+        errorDiv.innerText = err.message || "Connection error.";
         errorDiv.classList.remove('hidden');
       } finally {
         submitBtn.innerText = isRegisterMode ? 'Register Account' : 'Log In';
@@ -258,317 +305,427 @@
     };
 
     async function startApp() {
-        // Set lower left profile indicator
         document.getElementById('currentUsernameDisplay').innerText = window.currentUser.username;
         document.getElementById('currentUserInitial').innerText = window.currentUser.username.charAt(0).toUpperCase();
         
-        // Show Admin shield if user is Ajgplayz
         if (window.currentUser.username.toLowerCase() === 'ajgplayz') {
             document.getElementById('adminBtn').classList.remove('hidden');
         } else {
             document.getElementById('adminBtn').classList.add('hidden');
         }
 
-        await seedAdminAutomated(); // Check for admin db presence
-        listenForUsers(); // Start live sync
+        await seedDefaultData();
+        listenForUsers();
+        listenForServers();
+        openDirectMessagesTab();
     }
 
-    // Ensure Ajgplayz is permanently saved if not present
-    async function seedAdminAutomated() {
+    async function seedDefaultData() {
         try {
             if (!isOfflineMode) {
-                const usersRef = collection(db, 'artifacts', appId, 'public', 'data', 'users');
-                const snapshot = await getDocs(usersRef);
-                let adminExists = false;
-                snapshot.forEach(doc => {
-                    if (doc.data().username.toLowerCase() === 'ajgplayz') adminExists = true;
-                });
-                
-                if (!adminExists) {
-                    await addDoc(usersRef, { username: 'Ajgplayz', password: 'IH8People', createdAt: Date.now() });
+                const serversRef = collection(db, 'artifacts', appId, 'public', 'data', 'servers');
+                const snap = await getDocs(serversRef);
+                if (snap.empty) {
+                    const sRef = await addDoc(serversRef, { name: 'AJG Mainframe', ownerId: 'system', createdAt: Date.now() });
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', `server_${sRef.id}_channels`), { name: 'general', createdAt: Date.now() });
                 }
             } else {
-                let users = JSON.parse(localStorage.getItem('ajg_users') || '[]');
-                if (!users.find(u => u.username.toLowerCase() === 'ajgplayz')) {
-                    users.push({ id: 'user_admin', username: 'Ajgplayz', password: 'IH8People', createdAt: Date.now() });
-                    localStorage.setItem('ajg_users', JSON.stringify(users));
+                let servers = JSON.parse(localStorage.getItem('ajg_servers') || '[]');
+                if (servers.length === 0) {
+                    const sId = 'srv_' + Date.now();
+                    servers.push({ id: sId, name: 'AJG Mainframe' });
+                    localStorage.setItem('ajg_servers', JSON.stringify(servers));
+                    localStorage.setItem(`ajg_channels_${sId}`, JSON.stringify([{ id: 'chn_' + Date.now(), name: 'general' }]));
                 }
             }
         } catch(e) {
-            console.warn("Seeding bypassed:", e);
+            console.warn("Seeding error:", e);
         }
     }
 
     function listenForUsers() {
         if (!isOfflineMode) {
-            // Live Firestore Snapshot
             const usersRef = collection(db, 'artifacts', appId, 'public', 'data', 'users');
             usersUnsubscribe = onSnapshot(usersRef, (snapshot) => {
                 allUsers = [];
-                snapshot.forEach(doc => {
-                    // Don't show ourselves in DM list
-                    if (doc.data().username.toLowerCase() !== window.currentUser.username.toLowerCase()) {
-                        allUsers.push({ id: doc.id, ...doc.data() });
+                snapshot.forEach(docSnap => {
+                    if (docSnap.data().username.toLowerCase() !== window.currentUser?.username?.toLowerCase()) {
+                        allUsers.push({ id: docSnap.id, ...docSnap.data() });
                     }
                 });
-                window.handleUserSearch();
-            }, (error) => {
-                console.error("Users live sync stopped:", error);
-            });
+                if (currentNavTab === 'dms') window.handleUserSearch();
+            }, (err) => console.error("User listener error:", err));
         } else {
-            // Local fallback polling loop
             setInterval(() => {
                 let users = JSON.parse(localStorage.getItem('ajg_users') || '[]');
-                allUsers = users.filter(u => u.username.toLowerCase() !== window.currentUser.username.toLowerCase());
-                window.handleUserSearch();
+                allUsers = users.filter(u => u.username.toLowerCase() !== window.currentUser?.username?.toLowerCase());
+                if (currentNavTab === 'dms') window.handleUserSearch();
             }, 2000);
-            // Initial load
-            let users = JSON.parse(localStorage.getItem('ajg_users') || '[]');
-            allUsers = users.filter(u => u.username.toLowerCase() !== window.currentUser.username.toLowerCase());
-            window.handleUserSearch();
         }
+    }
+
+    function listenForServers() {
+        const renderServers = (servers) => {
+            allServers = servers;
+            const container = document.getElementById('sidebarServersList');
+            container.innerHTML = '';
+            
+            servers.forEach(srv => {
+                const btn = document.createElement('button');
+                const isActive = currentNavTab === srv.id;
+                btn.className = `group relative w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-sm transition-all ${isActive ? 'bg-indigo-600 text-white rounded-xl shadow-lg' : 'bg-gray-900 hover:bg-indigo-600 hover:text-white text-gray-300 shadow-inner'}`;
+                btn.onclick = () => selectServer(srv);
+                btn.innerHTML = `
+                    ${srv.name.charAt(0).toUpperCase()}
+                    <div class="absolute left-16 bg-gray-900 text-xs text-white px-2 py-1 rounded shadow-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">${srv.name}</div>
+                `;
+                container.appendChild(btn);
+            });
+        };
+
+        if (!isOfflineMode) {
+            const serversRef = collection(db, 'artifacts', appId, 'public', 'data', 'servers');
+            serversUnsubscribe = onSnapshot(serversRef, (snapshot) => {
+                let srvs = [];
+                snapshot.forEach(d => srvs.push({ id: d.id, ...d.data() }));
+                renderServers(srvs);
+            }, (err) => console.error("Server listener error:", err));
+        } else {
+            setInterval(() => {
+                renderServers(JSON.parse(localStorage.getItem('ajg_servers') || '[]'));
+            }, 2000);
+            renderServers(JSON.parse(localStorage.getItem('ajg_servers') || '[]'));
+        }
+    }
+
+    window.switchNavTab = function(tab) {
+        currentNavTab = tab;
+        if (tab === 'dms') {
+            document.getElementById('navDmBtn').className = 'group relative w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg transition-all';
+            document.getElementById('secSidebarTitle').innerText = 'Direct Messages';
+            document.getElementById('secSidebarActionBtn').classList.add('hidden');
+            document.getElementById('dmSearchWrapper').classList.remove('hidden');
+            openDirectMessagesTab();
+        }
+    };
+
+    function openDirectMessagesTab() {
+        window.handleUserSearch();
     }
 
     window.handleUserSearch = function() {
-        const inputStr = document.getElementById('userSearchInput').value.toLowerCase();
-        const listContainer = document.getElementById('usersList');
-        listContainer.innerHTML = '';
+        if (currentNavTab !== 'dms') return;
+        const query = document.getElementById('userSearchInput').value.toLowerCase();
+        const list = document.getElementById('secondaryList');
+        list.innerHTML = '';
         
-        let filtered = allUsers;
-        
-        if (inputStr) {
-            filtered = allUsers.filter(u => u.username.toLowerCase().includes(inputStr));
-            // Relevance Sort: names STARTING with query go to the top
-            filtered.sort((a, b) => {
-                const aStart = a.username.toLowerCase().startsWith(inputStr);
-                const bStart = b.username.toLowerCase().startsWith(inputStr);
-                if (aStart && !bStart) return -1;
-                if (!aStart && bStart) return 1;
-                return a.username.localeCompare(b.username);
-            });
-        } else {
-             filtered.sort((a, b) => a.username.localeCompare(b.username));
+        let filtered = allUsers.filter(u => u.username.toLowerCase().includes(query));
+        filtered.sort((a, b) => a.username.localeCompare(b.username));
+
+        if (filtered.length === 0) {
+            list.innerHTML = '<div class="text-xs text-gray-500 text-center py-4">No users found</div>';
+            return;
         }
 
         filtered.forEach(user => {
-            let uiName = user.username;
-            if (inputStr) {
-                // Highlighter logic for search matches
-                const regex = new RegExp(`(${inputStr})`, 'gi');
-                uiName = uiName.replace(regex, '<span class="text-emerald-400 font-bold bg-gray-700 rounded px-[1px]">$1</span>');
-            }
-
             const div = document.createElement('div');
-            // Selection highlight if this is the active chat
-            div.className = `flex items-center p-2 rounded-md cursor-pointer transition-colors ${currentChatUserId === user.id ? 'bg-gray-700' : 'hover:bg-gray-700'}`;
-            div.onclick = () => openDirectMessage(user);
-            
+            const isActive = activeChatTargetId === user.id && activeChatType === 'dm';
+            div.className = `flex items-center px-3 py-2.5 rounded-xl cursor-pointer transition-colors ${isActive ? 'bg-gray-800 text-white font-semibold' : 'text-gray-300 hover:bg-gray-800/50 hover:text-white'}`;
+            div.onclick = () => openDirectMessageChat(user);
             div.innerHTML = `
-                <div class="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center mr-3 font-bold text-sm shrink-0 shadow-sm text-white">
-                    ${user.username.charAt(0).toUpperCase()}
-                </div>
-                <div class="truncate text-gray-200 text-sm font-medium">
-                    ${uiName}
-                </div>
+                <div class="w-8 h-8 rounded-lg bg-indigo-600/30 text-indigo-400 font-bold text-xs flex items-center justify-center mr-3 border border-indigo-500/20">${user.username.charAt(0).toUpperCase()}</div>
+                <div class="text-xs truncate">${user.username}</div>
             `;
-            listContainer.appendChild(div);
+            list.appendChild(div);
         });
     };
 
-    function getConversationId(userId1, userId2) {
-        return [userId1, userId2].sort().join('_');
-    }
-
-    function openDirectMessage(user) {
-        currentChatUserId = user.id;
+    function openDirectMessageChat(user) {
+        activeChatTargetId = user.id;
+        activeChatType = 'dm';
         document.getElementById('chatHeaderTitle').innerText = user.username;
-        document.getElementById('chatHeaderIcon').classList.remove('hidden');
+        document.getElementById('chatHeaderIcon').className = 'fa-solid fa-at text-gray-500 mr-2.5 text-lg';
+        document.getElementById('chatHeaderSub').innerText = 'Direct Message';
         document.getElementById('messageForm').classList.remove('hidden');
+        document.getElementById('messageInput').placeholder = `Message @${user.username}`;
         document.getElementById('messageInput').focus();
         
-        window.handleUserSearch(); // Trigger search re-render to highlight active user block
-        listenToMessages(user.id);
+        window.handleUserSearch();
+        listenToMessages(`dms_${[window.currentUser.id, user.id].sort().join('_')}`);
     }
 
-    function listenToMessages(targetUserId) {
-        if (messagesUnsubscribe) messagesUnsubscribe(); // Clean up old chat listener
+    function selectServer(server) {
+        currentNavTab = server.id;
+        document.getElementById('navDmBtn').className = 'group relative w-12 h-12 rounded-2xl bg-gray-900 hover:bg-indigo-600 hover:text-white text-gray-300 flex items-center justify-center shadow-inner transition-all';
+        document.getElementById('secSidebarTitle').innerText = server.name;
+        document.getElementById('secSidebarActionBtn').classList.remove('hidden');
+        document.getElementById('dmSearchWrapper').classList.add('hidden');
         
-        const convId = getConversationId(window.currentUser.id, targetUserId);
-        
+        listenToChannels(server.id);
+    }
+
+    function listenToChannels(serverId) {
+        if (channelsUnsubscribe) channelsUnsubscribe();
+
+        const renderChannels = (channels) => {
+            const list = document.getElementById('secondaryList');
+            list.innerHTML = '';
+            
+            if (channels.length === 0) {
+                list.innerHTML = '<div class="text-xs text-gray-500 text-center py-4">No channels yet</div>';
+                return;
+            }
+
+            channels.forEach(chn => {
+                const isActive = activeChatTargetId === chn.id && activeChatType === 'channel';
+                const div = document.createElement('div');
+                div.className = `flex items-center px-3 py-2 rounded-xl cursor-pointer transition-colors ${isActive ? 'bg-gray-800 text-white font-semibold' : 'text-gray-400 hover:bg-gray-800/50 hover:text-gray-200'}`;
+                div.onclick = () => openChannelChat(serverId, chn);
+                div.innerHTML = `
+                    <i class="fa-solid fa-hashtag mr-2.5 text-gray-500 text-xs"></i>
+                    <div class="text-xs truncate">${chn.name}</div>
+                `;
+                list.appendChild(div);
+            });
+
+            if (!activeChatTargetId && channels.length > 0) {
+                openChannelChat(serverId, channels[0]);
+            }
+        };
+
         if (!isOfflineMode) {
-            const msgsRef = collection(db, 'artifacts', appId, 'public', 'data', `dms_${convId}`);
-            messagesUnsubscribe = onSnapshot(msgsRef, (snapshot) => {
+            const chnRef = collection(db, 'artifacts', appId, 'public', 'data', `server_${serverId}_channels`);
+            channelsUnsubscribe = onSnapshot(chnRef, (snapshot) => {
+                let chns = [];
+                snapshot.forEach(d => chns.push({ id: d.id, ...d.data() }));
+                renderChannels(chns);
+            }, (err) => console.error("Channel listener error:", err));
+        } else {
+            const chns = JSON.parse(localStorage.getItem(`ajg_channels_${serverId}`) || '[]');
+            renderChannels(chns);
+        }
+    }
+
+    function openChannelChat(serverId, channel) {
+        activeChatTargetId = channel.id;
+        activeChatType = 'channel';
+        document.getElementById('chatHeaderTitle').innerText = channel.name;
+        document.getElementById('chatHeaderIcon').className = 'fa-solid fa-hashtag text-gray-500 mr-2.5 text-lg';
+        document.getElementById('chatHeaderSub').innerText = `Server Channel`;
+        document.getElementById('messageForm').classList.remove('hidden');
+        document.getElementById('messageInput').placeholder = `Message #${channel.name}`;
+        document.getElementById('messageInput').focus();
+        
+        listenToChannelsListHighlight(serverId);
+        listenToMessages(`server_${serverId}_chn_${channel.id}`);
+    }
+
+    function listenToChannelsListHighlight(serverId) {
+        if (isOfflineMode) {
+            const chns = JSON.parse(localStorage.getItem(`ajg_channels_${serverId}`) || '[]');
+            const list = document.getElementById('secondaryList');
+            Array.from(list.children).forEach((el, idx) => {
+                if (chns[idx] && chns[idx].id === activeChatTargetId) {
+                    el.className = 'flex items-center px-3 py-2 rounded-xl cursor-pointer transition-colors bg-gray-800 text-white font-semibold';
+                } else {
+                    el.className = 'flex items-center px-3 py-2 rounded-xl cursor-pointer transition-colors text-gray-400 hover:bg-gray-800/50 hover:text-gray-200';
+                }
+            });
+        }
+    }
+
+    window.openCreateServerModal = () => document.getElementById('createServerModal').classList.remove('hidden');
+    window.closeCreateServerModal = () => document.getElementById('createServerModal').classList.add('hidden');
+    window.openCreateChannelModal = () => document.getElementById('createChannelModal').classList.remove('hidden');
+    window.closeCreateChannelModal = () => document.getElementById('createChannelModal').classList.add('hidden');
+
+    window.handleCreateServer = async function(e) {
+        e.preventDefault();
+        const name = document.getElementById('serverNameInput').value.trim();
+        if (!name) return;
+        document.getElementById('serverNameInput').value = '';
+        window.closeCreateServerModal();
+
+        if (!isOfflineMode) {
+            const sRef = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'servers'), { name, ownerId: window.currentUser.id, createdAt: Date.now() });
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', `server_${sRef.id}_channels`), { name: 'general', createdAt: Date.now() });
+        } else {
+            let servers = JSON.parse(localStorage.getItem('ajg_servers') || '[]');
+            const sId = 'srv_' + Date.now();
+            servers.push({ id: sId, name });
+            localStorage.setItem('ajg_servers', JSON.stringify(servers));
+            localStorage.setItem(`ajg_channels_${sId}`, JSON.stringify([{ id: 'chn_' + Date.now(), name: 'general' }]));
+        }
+    };
+
+    window.handleCreateChannel = async function(e) {
+        e.preventDefault();
+        const name = document.getElementById('channelNameInput').value.trim();
+        if (!name || currentNavTab === 'dms') return;
+        document.getElementById('channelNameInput').value = '';
+        window.closeCreateChannelModal();
+
+        const serverId = currentNavTab;
+        if (!isOfflineMode) {
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', `server_${serverId}_channels`), { name, createdAt: Date.now() });
+        } else {
+            let chns = JSON.parse(localStorage.getItem(`ajg_channels_${serverId}`) || '[]');
+            chns.push({ id: 'chn_' + Date.now(), name });
+            localStorage.setItem(`ajg_channels_${serverId}`, JSON.stringify(chns));
+        }
+    };
+
+    function listenToMessages(storageKey) {
+        if (messagesUnsubscribe) messagesUnsubscribe();
+
+        const renderMsgs = (msgs) => {
+            msgs.sort((a, b) => a.timestamp - b.timestamp);
+            const container = document.getElementById('chatMessages');
+            container.innerHTML = '';
+            
+            if (msgs.length === 0) {
+                container.innerHTML = '<div class="flex items-center justify-center h-full text-xs text-gray-500">No messages yet. Start the conversation!</div>';
+                return;
+            }
+
+            msgs.forEach(m => {
+                const isMe = m.senderId === window.currentUser.id;
+                const div = document.createElement('div');
+                div.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'}`;
+                div.innerHTML = `
+                    <div class="flex items-baseline space-x-2 mb-1 px-1">
+                        <span class="text-xs font-bold text-gray-300">${m.senderName}</span>
+                        <span class="text-[10px] text-gray-500">${new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                    </div>
+                    <div class="max-w-[80%] rounded-2xl px-4 py-2.5 text-xs shadow-sm ${isMe ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-gray-800 text-gray-100 rounded-bl-none'} break-words">${m.text}</div>
+                `;
+                container.appendChild(div);
+            });
+            container.scrollTop = container.scrollHeight;
+        };
+
+        if (!isOfflineMode) {
+            const msgRef = collection(db, 'artifacts', appId, 'public', 'data', `messages_${storageKey}`);
+            messagesUnsubscribe = onSnapshot(msgRef, (snapshot) => {
                 let msgs = [];
-                snapshot.forEach(doc => msgs.push({ id: doc.id, ...doc.data() }));
-                renderMessagesUi(msgs);
-            }, (err) => console.error("Message sync error:", err));
+                snapshot.forEach(d => msgs.push({ id: d.id, ...d.data() }));
+                renderMsgs(msgs);
+            }, (err) => console.error("Message stream error:", err));
         } else {
             if (window.localMsgInterval) clearInterval(window.localMsgInterval);
             const loadLocal = () => {
-                let msgs = JSON.parse(localStorage.getItem(`ajg_dms_${convId}`) || '[]');
-                renderMessagesUi(msgs);
+                renderMsgs(JSON.parse(localStorage.getItem(`ajg_msgs_${storageKey}`) || '[]'));
             };
             loadLocal();
             window.localMsgInterval = setInterval(loadLocal, 1000);
         }
     }
 
-    function renderMessagesUi(msgs) {
-        msgs.sort((a, b) => a.timestamp - b.timestamp);
-        const container = document.getElementById('chatMessages');
-        container.innerHTML = '';
-        
-        if (msgs.length === 0) {
-            container.innerHTML = '<div class="flex items-center justify-center h-full text-gray-400">Be the first to say hello!</div>';
-            return;
-        }
-
-        msgs.forEach(msg => {
-            const isMe = msg.senderId === window.currentUser.id;
-            const div = document.createElement('div');
-            div.className = `flex ${isMe ? 'justify-end' : 'justify-start'} group`;
-            
-            div.innerHTML = `
-                <div class="max-w-[75%] rounded-lg px-4 py-2 shadow-sm ${isMe ? 'bg-emerald-600 text-white rounded-br-none' : 'bg-gray-800 text-gray-100 rounded-bl-none'}">
-                    <div class="text-[11px] font-bold ${isMe ? 'text-emerald-200' : 'text-gray-400'} mb-1">${msg.senderName}</div>
-                    <div class="break-words text-sm">${msg.text}</div>
-                </div>
-            `;
-            container.appendChild(div);
-        });
-        
-        container.scrollTop = container.scrollHeight;
-    }
-
     window.handleSendMessage = async function(e) {
         e.preventDefault();
         const input = document.getElementById('messageInput');
         const text = input.value.trim();
-        if (!text || !currentChatUserId) return;
-        
-        input.value = ''; // clear input instantly for UX
-        
-        const convId = getConversationId(window.currentUser.id, currentChatUserId);
-        const msg = {
+        if (!text || !activeChatTargetId) return;
+        input.value = '';
+
+        const storageKey = activeChatType === 'dm' 
+            ? `dms_${[window.currentUser.id, activeChatTargetId].sort().join('_')}`
+            : `server_${currentNavTab}_chn_${activeChatTargetId}`;
+
+        const msgPayload = {
             senderId: window.currentUser.id,
             senderName: window.currentUser.username,
-            text: text,
+            text,
             timestamp: Date.now()
         };
 
         if (!isOfflineMode) {
-            // Push message to cloud
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', `dms_${convId}`), msg);
-            // Track globally for the Admin Panel
-            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'all_conversations', convId), {
-                id: convId,
-                lastUpdated: Date.now()
-            });
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', `messages_${storageKey}`), msgPayload);
         } else {
-            let msgs = JSON.parse(localStorage.getItem(`ajg_dms_${convId}`) || '[]');
-            msgs.push({ id: 'msg_' + Date.now(), ...msg });
-            localStorage.setItem(`ajg_dms_${convId}`, JSON.stringify(msgs));
-            
-            let convos = JSON.parse(localStorage.getItem('ajg_all_conversations') || '[]');
-            if (!convos.includes(convId)) {
-                convos.push(convId);
-                localStorage.setItem('ajg_all_conversations', JSON.stringify(convos));
-            }
+            let msgs = JSON.parse(localStorage.getItem(`ajg_msgs_${storageKey}`) || '[]');
+            msgs.push({ id: 'msg_' + Date.now(), ...msgPayload });
+            localStorage.setItem(`ajg_msgs_${storageKey}`, JSON.stringify(msgs));
         }
     };
 
+    // Admin Dashboard & Row Deletion Handler
     window.showAdminPanel = async function() {
         document.getElementById('adminPanel').classList.remove('hidden');
-        const list = document.getElementById('adminDmList');
-        list.innerHTML = '<div class="text-center text-gray-400 py-10"><i class="fa-solid fa-spinner fa-spin text-3xl mb-4"></i><br>Gathering global communications...</div>';
+        await refreshAdminDashboard();
+    };
+
+    async function refreshAdminDashboard() {
+        const content = document.getElementById('adminContent');
+        content.innerHTML = '<div class="text-center text-gray-500 py-10"><i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i><br>Fetching database rows...</div>';
         
-        let convos = [];
+        let users = [];
         if (!isOfflineMode) {
-             const convRef = collection(db, 'artifacts', appId, 'public', 'data', 'all_conversations');
-             const snap = await getDocs(convRef);
-             snap.forEach(doc => convos.push(doc.id));
+            const snap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'users'));
+            snap.forEach(d => users.push({ id: d.id, ...d.data() }));
         } else {
-             convos = JSON.parse(localStorage.getItem('ajg_all_conversations') || '[]');
+            users = JSON.parse(localStorage.getItem('ajg_users') || '[]');
         }
 
-        list.innerHTML = '';
-        if (convos.length === 0) {
-            list.innerHTML = '<div class="text-gray-400 text-center py-10">Database is empty. No private conversations have been started.</div>';
+        content.innerHTML = `<h3 class="text-sm font-bold text-gray-200 mb-3 uppercase tracking-wider">Registered Accounts Database (${users.length} rows)</h3>`;
+        const grid = document.createElement('div');
+        grid.className = 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3';
+        
+        if (users.length === 0) {
+            content.innerHTML += '<div class="text-xs text-gray-500">No database rows found.</div>';
             return;
         }
 
-        for (let convId of convos) {
-             let msgs = [];
-             if (!isOfflineMode) {
-                 const msgsSnap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', `dms_${convId}`));
-                 msgsSnap.forEach(d => msgs.push({id: d.id, ...d.data()}));
-             } else {
-                 msgs = JSON.parse(localStorage.getItem(`ajg_dms_${convId}`) || '[]');
-             }
-             
-             if (msgs.length > 0) {
-                 msgs.sort((a,b) => a.timestamp - b.timestamp);
-                 
-                 const box = document.createElement('div');
-                 box.className = 'bg-gray-900 border border-gray-700 p-4 rounded-lg mb-4 shadow-lg relative overflow-hidden';
-                 
-                 let chatHtml = `<div class="flex justify-between items-center mb-3 border-b border-gray-700 pb-3">
-                    <div class="font-mono text-xs text-gray-400">ID: ${convId}</div>
-                    <button onclick="window.deleteConversation('${convId}')" class="bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded font-bold text-xs transition-colors shadow"><i class="fa-solid fa-trash mr-1"></i> Terminate Thread</button>
-                 </div>
-                 <div class="max-h-60 overflow-y-auto space-y-2 bg-gray-800 p-3 rounded border border-gray-700">`;
-                 
-                 msgs.forEach(m => {
-                     chatHtml += `<div class="text-gray-300 text-sm"><span class="font-bold text-indigo-400">${m.senderName}:</span> ${m.text}</div>`;
-                 });
-                 
-                 chatHtml += '</div>';
-                 box.innerHTML = chatHtml;
-                 list.appendChild(box);
-             }
+        users.forEach(u => {
+            const card = document.createElement('div');
+            card.className = 'bg-gray-950 p-4 rounded-xl border border-gray-800 flex flex-col justify-between';
+            card.innerHTML = `
+                <div>
+                    <div class="font-bold text-sm text-white truncate">${u.username}</div>
+                    <div class="text-[10px] text-gray-500 mt-1 break-all">ID: ${u.id}</div>
+                </div>
+                <div class="mt-4 pt-3 border-t border-gray-900 flex justify-end">
+                    <button onclick="window.deleteUserRow('${u.id}')" class="px-3 py-1.5 rounded-lg bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white text-xs font-bold transition-all flex items-center">
+                        <i class="fa-solid fa-trash mr-1.5"></i> Delete Row
+                    </button>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+        content.appendChild(grid);
+    }
+
+    window.deleteUserRow = async function(userId) {
+        if (!confirm("Are you sure you want to delete this user record from the database?")) return;
+        
+        try {
+            if (!isOfflineMode) {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', userId));
+            } else {
+                let users = JSON.parse(localStorage.getItem('ajg_users') || '[]');
+                users = users.filter(u => u.id !== userId);
+                localStorage.setItem('ajg_users', JSON.stringify(users));
+            }
+            await refreshAdminDashboard();
+        } catch(e) {
+            console.error("Failed to delete database row:", e);
+            alert("Error deleting row: " + e.message);
         }
     };
 
-    window.closeAdminPanel = function() {
-        document.getElementById('adminPanel').classList.add('hidden');
-    };
+    window.closeAdminPanel = () => document.getElementById('adminPanel').classList.add('hidden');
 
-    window.deleteConversation = async function(convId) {
-        if (!confirm("Are you sure you want to completely erase this conversation history from the database?")) return;
-        
-        if (!isOfflineMode) {
-             const msgsSnap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', `dms_${convId}`));
-             msgsSnap.forEach(async (d) => {
-                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', `dms_${convId}`, d.id));
-             });
-             await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'all_conversations', convId));
-        } else {
-             localStorage.removeItem(`ajg_dms_${convId}`);
-             let convos = JSON.parse(localStorage.getItem('ajg_all_conversations') || '[]');
-             convos = convos.filter(c => c !== convId);
-             localStorage.setItem('ajg_all_conversations', JSON.stringify(convos));
-        }
-        
-        window.showAdminPanel(); // Refresh view
-    };
-
-    // Logout
     window.logout = function() {
         window.currentUser = null;
         if (usersUnsubscribe) usersUnsubscribe();
+        if (serversUnsubscribe) serversUnsubscribe();
+        if (channelsUnsubscribe) channelsUnsubscribe();
         if (messagesUnsubscribe) messagesUnsubscribe();
+        
         document.getElementById('authModal').classList.remove('hidden');
         document.getElementById('appContainer').classList.add('hidden');
         document.getElementById('authPassword').value = '';
-        
-        // Reset app state
-        currentChatUserId = null;
-        document.getElementById('messageForm').classList.add('hidden');
-        document.getElementById('chatMessages').innerHTML = '';
-        document.getElementById('chatHeaderTitle').innerText = 'Welcome to AJG-Connect';
-        document.getElementById('chatHeaderIcon').classList.add('hidden');
-    }
-
+        activeChatTargetId = null;
+    };
   </script>
 </body>
 </html>
