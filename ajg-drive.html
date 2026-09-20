@@ -15,6 +15,7 @@
 </head>
 <body class="bg-white h-screen overflow-hidden flex flex-col select-none">
 
+    <!-- MAIN APP DASHBOARD CONTAINER -->
     <div id="mainAppContainer" class="flex h-full w-full overflow-hidden">
         
         <!-- SIDEBAR -->
@@ -71,38 +72,40 @@
         </main>
     </div>
 
+    <!-- PUBLIC LINK SHARING MODAL -->
     <div id="shareModal" class="hidden fixed inset-0 bg-black/40 items-center justify-center z-50">
         <div class="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl border border-gray-100">
-            <h3 class="text-lg font-medium text-gray-800 mb-2">Shareable Short Link</h3>
-            <p class="text-xs text-gray-500 mb-4">Copy this clean short link to share this file. Copying does not trigger downloads.</p>
+            <h3 class="text-lg font-medium text-gray-800 mb-2">Public Share Link</h3>
+            <p class="text-xs text-gray-500 mb-4">Anyone with this public link can view and download this file manually. Copying does not trigger automatic downloads.</p>
             
             <div class="flex gap-2 mb-6">
-                <input type="text" id="tinyUrlInput" readonly class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-600 outline-none select-all">
-                <button onclick="copyTinyUrl()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-sm shrink-0 transition duration-200">Copy</button>
+                <input type="text" id="publicLinkInput" readonly class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-600 outline-none select-all">
+                <button onclick="copyPublicLink()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-sm shrink-0 transition duration-200 cursor-pointer">Copy</button>
             </div>
 
             <div class="flex justify-end">
-                <button onclick="closeShareModal()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-4 py-2 rounded-lg text-sm transition duration-200">Close</button>
+                <button onclick="closeShareModal()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-4 py-2 rounded-lg text-sm transition duration-200 cursor-pointer">Close</button>
             </div>
         </div>
     </div>
 
-    <div id="downloadLandingView" class="hidden fixed inset-0 bg-gray-100 flex items-center justify-center z-50 p-4">
+    <!-- PUBLIC FRIEND DOWNLOAD PORTAL VIEW -->
+    <div id="publicDownloadView" class="hidden fixed inset-0 bg-gray-100 flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-2xl shadow-xl border border-gray-200 p-8 max-w-md w-full text-center">
             <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span class="material-icons-outlined text-3xl" id="landingFileIcon">description</span>
+                <span class="material-icons-outlined text-3xl" id="publicFileIcon">description</span>
             </div>
-            <h2 id="landingFileName" class="text-xl font-medium text-gray-800 mb-1">Filename.ext</h2>
-            <p id="landingFileSize" class="text-xs text-gray-500 mb-6">0 KB • Shared via ajg-drive</p>
+            <h2 id="publicFileName" class="text-xl font-medium text-gray-800 mb-1">Filename.ext</h2>
+            <p id="publicFileSize" class="text-xs text-gray-500 mb-6">0 KB • Shared via ajg-drive Public Link</p>
             
-            <p class="text-sm text-gray-600 mb-6">This file was shared with you. Click the button below to download it securely to your device.</p>
+            <p class="text-sm text-gray-600 mb-6">A friend has shared this file with you publicly. Click the button below to download it securely to your device.</p>
             
-            <button id="executeDownloadBtn" onclick="triggerManualDownload()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-xl shadow transition duration-200 flex items-center justify-center gap-2 mb-3 cursor-pointer">
+            <button onclick="executePublicDownload()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-xl shadow transition duration-200 flex items-center justify-center gap-2 mb-3 cursor-pointer">
                 <span class="material-icons-outlined">download</span>
                 <span>Download File</span>
             </button>
             
-            <button onclick="exitLandingView()" class="text-sm text-gray-500 hover:text-gray-700 font-medium">Go to ajg-drive Dashboard</button>
+            <button onclick="exitPublicDownload()" class="text-sm text-gray-500 hover:text-gray-700 font-medium cursor-pointer">Open ajg-drive Dashboard</button>
         </div>
     </div>
 
@@ -114,19 +117,20 @@
         ];
 
         let files = JSON.parse(localStorage.getItem('ajg_files')) || [
-            { id: "sample-1", name: "Welcome.txt", type: "text/plain", size: "14 B", data: btoa("Welcome to ajg-drive! Upload real files and generate clean short links.") }
+            { id: "sample-1", name: "Welcome.txt", type: "text/plain", size: "14 B", data: btoa("Welcome to ajg-drive! Upload real files and generate public shareable links for your friends.") }
         ];
 
-        let currentActiveShareFile = null;
+        let activePublicFile = null;
 
-        // Check if user loaded via shared hash route on startup
+        // Check URL parameters or hashes on startup to support incoming friend links
         window.addEventListener('DOMContentLoaded', () => {
             const hash = window.location.hash;
-            if (hash && hash.startsWith('#dl=')) {
-                const fileId = hash.replace('#dl=', '');
+            if (hash && hash.startsWith('#share=')) {
+                const fileId = hash.replace('#share=', '');
                 const targetFile = files.find(f => f.id == fileId);
                 if (targetFile) {
-                    showDownloadLanding(targetFile);
+                    showPublicDownloadPortal(targetFile);
+                    return;
                 }
             }
             render();
@@ -162,8 +166,8 @@
                             <h4 class="text-xs font-medium text-gray-800 truncate">${file.name}</h4>
                             <p class="text-[11px] text-gray-500 mt-0.5">${file.size}</p>
                         </div>
-                        <button onclick="openShareModal('${file.id}')" class="p-1 rounded-full hover:bg-gray-100 text-gray-500 hover:text-blue-600 transition cursor-pointer" title="Get Short Share Link">
-                            <span class="material-icons-outlined text-lg">link</span>
+                        <button onclick="openShareModal('${file.id}')" class="p-1 rounded-full hover:bg-gray-100 text-gray-500 hover:text-blue-600 transition cursor-pointer" title="Get Public Link">
+                            <span class="material-icons-outlined text-lg">share</span>
                         </button>
                     </div>
                 </div>
@@ -223,19 +227,18 @@
             reader.readAsDataURL(uploadedFile);
         }
 
-        // Short Link Generation Flow (CORS-free custom format)
+        // Public Share Link Modal Handler
         function openShareModal(fileId) {
-            currentActiveShareFile = files.find(f => f.id == fileId);
-            if (!currentActiveShareFile) return;
+            const targetFile = files.find(f => f.id == fileId);
+            if (!targetFile) return;
 
             document.getElementById('shareModal').classList.remove('hidden');
             document.getElementById('shareModal').classList.add('flex');
 
-            // Generate clean short share link using custom app hash route
             const baseUrl = window.location.origin + window.location.pathname;
-            const shortLink = `${baseUrl}#dl=${currentActiveShareFile.id}`;
+            const publicLink = `${baseUrl}#share=${targetFile.id}`;
 
-            document.getElementById('tinyUrlInput').value = shortLink;
+            document.getElementById('publicLinkInput').value = publicLink;
         }
 
         function closeShareModal() {
@@ -243,41 +246,40 @@
             document.getElementById('shareModal').classList.add('hidden');
         }
 
-        function copyTinyUrl() {
-            const input = document.getElementById('tinyUrlInput');
+        function copyPublicLink() {
+            const input = document.getElementById('publicLinkInput');
             input.select();
             document.execCommand('copy');
-            alert("Short link copied to clipboard successfully! No automatic download was triggered.");
+            alert("Public link copied to clipboard successfully! Share this link with your friends. No automatic download was triggered.");
             closeShareModal();
         }
 
-        // Dedicated Download Landing Page View
-        function showDownloadLanding(fileObj) {
+        // Public Friend Download Portal View
+        function showPublicDownloadPortal(fileObj) {
             document.getElementById('mainAppContainer').classList.add('hidden');
-            document.getElementById('downloadLandingView').classList.remove('hidden');
+            document.getElementById('publicDownloadView').classList.remove('hidden');
             
-            document.getElementById('landingFileName').innerText = fileObj.name;
-            document.getElementById('landingFileSize').innerText = `${fileObj.size} • Shared via ajg-drive`;
-            document.getElementById('landingFileIcon').innerText = getFileIcon(fileObj.type || '');
+            document.getElementById('publicFileName').innerText = fileObj.name;
+            document.getElementById('publicFileSize').innerText = `${fileObj.size} • Shared via ajg-drive Public Link`;
+            document.getElementById('publicFileIcon').innerText = getFileIcon(fileObj.type || '');
 
-            window.pendingDownloadFile = fileObj;
+            activePublicFile = fileObj;
         }
 
-        function triggerManualDownload() {
-            const fileObj = window.pendingDownloadFile;
-            if (!fileObj) return;
+        function executePublicDownload() {
+            if (!activePublicFile) return;
 
             const a = document.createElement('a');
-            a.href = fileObj.data;
-            a.download = fileObj.name;
+            a.href = activePublicFile.data;
+            a.download = activePublicFile.name;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
         }
 
-        function exitLandingView() {
+        function exitPublicDownload() {
             window.location.hash = '';
-            document.getElementById('downloadLandingView').classList.add('hidden');
+            document.getElementById('publicDownloadView').classList.add('hidden');
             document.getElementById('mainAppContainer').classList.remove('hidden');
             render();
         }
