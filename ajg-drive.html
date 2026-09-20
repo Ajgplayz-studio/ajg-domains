@@ -15,6 +15,16 @@
 </head>
 <body class="bg-white h-screen overflow-hidden flex flex-col select-none">
 
+    <!-- CUSTOM NOTIFICATION MODAL (Replaces alert) -->
+    <div id="customModal" class="hidden fixed inset-0 bg-black/40 items-center justify-center z-50">
+        <div class="bg-white rounded-xl p-6 w-full max-w-sm shadow-2xl border border-gray-100 text-center">
+            <span class="material-icons-outlined text-blue-600 text-4xl mb-2" id="modalIcon">info</span>
+            <h3 id="modalTitle" class="text-lg font-medium text-gray-800 mb-1">Notification</h3>
+            <p id="modalMessage" class="text-xs text-gray-500 mb-6">Message goes here...</p>
+            <button onclick="closeCustomModal()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg text-sm transition duration-200 cursor-pointer">OK</button>
+        </div>
+    </div>
+
     <!-- MAIN APP DASHBOARD CONTAINER -->
     <div id="mainAppContainer" class="flex h-full w-full overflow-hidden">
         
@@ -76,7 +86,7 @@
     <div id="shareModal" class="hidden fixed inset-0 bg-black/40 items-center justify-center z-50">
         <div class="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl border border-gray-100">
             <h3 class="text-lg font-medium text-gray-800 mb-2">Public Share Link</h3>
-            <p class="text-xs text-gray-500 mb-4">Anyone with this public link can view and download this file manually. Copying does not trigger automatic downloads.</p>
+            <p class="text-xs text-gray-500 mb-4">Anyone with this public link can view and download this file instantly without needing an account.</p>
             
             <div class="flex gap-2 mb-6">
                 <input type="text" id="publicLinkInput" readonly class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-600 outline-none select-all">
@@ -92,7 +102,7 @@
     <!-- PUBLIC FRIEND DOWNLOAD PORTAL VIEW -->
     <div id="publicDownloadView" class="hidden fixed inset-0 bg-gray-100 flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-2xl shadow-xl border border-gray-200 p-8 max-w-md w-full text-center">
-            <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 overflow-hidden">
                 <span class="material-icons-outlined text-3xl" id="publicFileIcon">description</span>
             </div>
             <h2 id="publicFileName" class="text-xl font-medium text-gray-800 mb-1">Filename.ext</h2>
@@ -124,17 +134,41 @@
 
         // Check URL parameters or hashes on startup to support incoming friend links
         window.addEventListener('DOMContentLoaded', () => {
+            handleInitialRoute();
+        });
+
+        // Also listen for hash changes if someone navigates back/forth
+        window.addEventListener('hashchange', () => {
+            handleInitialRoute();
+        });
+
+        function handleInitialRoute() {
             const hash = window.location.hash;
-            if (hash && hash.startsWith('#share=')) {
-                const fileId = hash.replace('#share=', '');
+            let fileId = null;
+
+            if (hash && hash.includes('shared=')) {
+                // Extracts file ID from formats like #shared=ID or #/shared=ID
+                const parts = hash.split('shared=');
+                if (parts.length > 1) {
+                    fileId = parts[1].split('&')[0];
+                }
+            } else {
+                // Check search params as backup (?shared=ID)
+                const urlParams = new URLSearchParams(window.location.search);
+                fileId = urlParams.get('shared');
+            }
+
+            if (fileId) {
                 const targetFile = files.find(f => f.id == fileId);
                 if (targetFile) {
                     showPublicDownloadPortal(targetFile);
-                    return;
+                } else {
+                    showCustomModal("File Not Found", "The shared file could not be found or may have been deleted.", "error");
                 }
+            } else {
+                render();
             }
-            render();
-        });
+        }
 
         function saveData() {
             localStorage.setItem('ajg_folders', JSON.stringify(folders));
@@ -236,7 +270,7 @@
             document.getElementById('shareModal').classList.add('flex');
 
             const baseUrl = window.location.origin + window.location.pathname;
-            const publicLink = `${baseUrl}#share=${targetFile.id}`;
+            const publicLink = `${baseUrl}#shared=${targetFile.id}`;
 
             document.getElementById('publicLinkInput').value = publicLink;
         }
@@ -250,8 +284,8 @@
             const input = document.getElementById('publicLinkInput');
             input.select();
             document.execCommand('copy');
-            alert("Public link copied to clipboard successfully! Share this link with your friends. No automatic download was triggered.");
             closeShareModal();
+            showCustomModal("Copied!", "Public share link copied to clipboard successfully.", "check_circle");
         }
 
         // Public Friend Download Portal View
@@ -294,6 +328,20 @@
                     fileCards[index].style.display = matches ? 'flex' : 'none';
                 }
             });
+        }
+
+        // Custom Modal helper
+        function showCustomModal(title, message, iconName = 'info') {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalMessage').innerText = message;
+            document.getElementById('modalIcon').innerText = iconName;
+            document.getElementById('customModal').classList.remove('hidden');
+            document.getElementById('customModal').classList.add('flex');
+        }
+
+        function closeCustomModal() {
+            document.getElementById('customModal').classList.remove('flex');
+            document.getElementById('customModal').classList.add('hidden');
         }
     </script>
 </body>
