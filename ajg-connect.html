@@ -376,6 +376,18 @@
       border-radius: 6px;
     }
 
+    /* Video Message Styling */
+    .chat-video {
+      margin-top: 6px;
+      max-width: 340px;
+      max-height: 240px;
+      width: 100%;
+      border-radius: 8px;
+      background: #000;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: block;
+    }
+
     .input-area {
       padding: 0 16px 24px 16px;
     }
@@ -631,16 +643,16 @@
             <span class="author">System</span>
             <span class="timestamp">Live</span>
           </div>
-          <div class="text">Welcome to ajg-connect! Canvas sandbox environment detected: local fallback simulation active for seamless testing. HTTPS links have safe warnings. Attach images or universal audio (.mp3, .wav, .ogg, etc.), record voice clips, or type <b>/clear</b>.</div>
+          <div class="text">Welcome to ajg-connect with Video Support! Share images, universal audio, recorded voice clips, or videos (mp4, webm, etc.), click safe HTTPS links, or type <b>/clear</b>.</div>
         </div>
       </div>
     </div>
 
     <div class="input-area">
       <form id="chat-form" class="input-wrapper">
-        <input type="file" id="media-file-input" accept="image/*,audio/*" style="display: none;" />
+        <input type="file" id="media-file-input" accept="image/*,audio/*,video/*" style="display: none;" />
         <div class="input-actions">
-          <button type="button" class="icon-btn" id="attach-btn" title="Upload Image or Audio File" disabled>📎</button>
+          <button type="button" class="icon-btn" id="attach-btn" title="Upload Image, Audio, or Video File" disabled>📎</button>
           <button type="button" class="icon-btn" id="record-btn" title="Record Voice Message" disabled>🎙️</button>
         </div>
         <input type="text" id="message-input" placeholder="Connect to chat..." autocomplete="off" disabled />
@@ -856,13 +868,12 @@
       isSimulationMode = true;
       setConnectedUI(code);
       addUser(currentUser);
-      appendMessage('System', '🌐 Sandbox WebSocket security restriction detected. Local simulation fallback enabled so you can fully test chatting, voice notes, audio uploads, and image sharing right here!', '#23a55a');
+      appendMessage('System', '🌐 Sandbox WebSocket security restriction detected. Local simulation fallback enabled so you can fully test chat, images, audio, video, and safety modals right here!', '#23a55a');
       
-      // Add a simulated bot user for active interaction
       setTimeout(() => {
         const botUser = { id: 'bot_alex', name: 'Alex_Bot', color: stringToColor('Alex_Bot') };
         addUser(botUser);
-        appendMessage('Alex_Bot', 'Hey there! Welcome to the simulated room on ajg-connect. Try sending me a message, image, or audio note!', botUser.color);
+        appendMessage('Alex_Bot', 'Hey there! Try sending a video or audio clip in this simulated room!', botUser.color);
       }, 1000);
     }
 
@@ -916,7 +927,7 @@
         data.list.forEach(u => addUser(u));
       } 
       else if (data.type === 'message') {
-        appendMessage(data.sender, data.text, data.color, data.image, data.audio);
+        appendMessage(data.sender, data.text, data.color, data.image, data.audio, data.video);
         
         if (isHost) {
           broadcastData(data, sourceConn);
@@ -1002,7 +1013,7 @@
               <span class="author">System</span>
               <span class="timestamp">Live</span>
             </div>
-            <div class="text">Welcome to ajg-connect! HTTPS links have safe warnings. Attach images or universal audio (.mp3, .wav, .ogg, etc.), record voice clips, or type <b>/clear</b>.</div>
+            <div class="text">Welcome to ajg-connect with Video Support! Share images, universal audio, voice clips, or videos.</div>
           </div>
         </div>
       `;
@@ -1033,7 +1044,7 @@
     messageInput.addEventListener('paste', (e) => {
       const items = (e.clipboardData || e.originalEvent.clipboardData).items;
       for (let item of items) {
-        if (item.type.indexOf('image') === 0 || item.type.indexOf('audio') === 0) {
+        if (item.type.indexOf('image') === 0 || item.type.indexOf('audio') === 0 || item.type.indexOf('video') === 0) {
           e.preventDefault();
           const file = item.getAsFile();
           if (file) processAndSendFile(file);
@@ -1043,8 +1054,8 @@
     });
 
     function processAndSendFile(file) {
-      if (file.size > 8 * 1024 * 1024) {
-        appendMessage('System', 'File is too large! Please choose a file under 8MB.', 'var(--red)');
+      if (file.size > 15 * 1024 * 1024) {
+        appendMessage('System', 'File is too large! Please choose a file under 15MB.', 'var(--red)');
         return;
       }
 
@@ -1052,9 +1063,11 @@
       reader.onload = function(event) {
         const base64Data = event.target.result;
         if (file.type.startsWith('image/')) {
-          sendChatMessage('', base64Data, null);
+          sendChatMessage('', base64Data, null, null);
         } else if (file.type.startsWith('audio/') || file.name.match(/\.(mp3|wav|ogg|aac|m4a|flac)$/i)) {
-          sendChatMessage('', null, base64Data);
+          sendChatMessage('', null, base64Data, null);
+        } else if (file.type.startsWith('video/') || file.name.match(/\.(mp4|webm|mov|m4v|ogv)$/i)) {
+          sendChatMessage('', null, null, base64Data);
         } else {
           appendMessage('System', 'Unsupported file format.', 'var(--red)');
         }
@@ -1078,7 +1091,7 @@
             const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
             const reader = new FileReader();
             reader.onload = function(event) {
-              sendChatMessage('', null, event.target.result);
+              sendChatMessage('', null, event.target.result, null);
             };
             reader.readAsDataURL(audioBlob);
 
@@ -1122,16 +1135,15 @@
         return;
       }
 
-      sendChatMessage(text, null, null);
+      sendChatMessage(text, null, null, null);
       
       if (isSimulationMode && onlineUsers.has('bot_alex')) {
         setTimeout(() => {
           const botResponses = [
-            "That's super cool!",
-            "I totally agree with you on that.",
-            "Testing out the audio and image features is awesome here.",
-            "Let me know if you need any help testing anything else!",
-            "Got it! Sounds good to me."
+            "That video clip looks awesome!",
+            "Thanks for sharing!",
+            "Testing out video and audio uploads here is super smooth.",
+            "Let me know if you want to test anything else!"
           ];
           const randomReply = botResponses[Math.floor(Math.random() * botResponses.length)];
           appendMessage('Alex_Bot', randomReply, onlineUsers.get('bot_alex').color);
@@ -1141,17 +1153,18 @@
       messageInput.value = '';
     });
 
-    function sendChatMessage(text, imageData, audioData) {
+    function sendChatMessage(text, imageData, audioData, videoData) {
       const msgData = {
         type: 'message',
         sender: currentUser.name,
         text: text,
         image: imageData,
         audio: audioData,
+        video: videoData,
         color: currentUser.color
       };
 
-      appendMessage(currentUser.name, text, currentUser.color, imageData, audioData);
+      appendMessage(currentUser.name, text, currentUser.color, imageData, audioData, videoData);
       broadcastData(msgData);
     }
 
@@ -1189,7 +1202,7 @@
       confirmModal.style.display = 'none';
     });
 
-    function appendMessage(sender, text, color, imageData, audioData) {
+    function appendMessage(sender, text, color, imageData, audioData, videoData) {
       const messageDiv = document.createElement('div');
       messageDiv.className = 'message';
       const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -1200,6 +1213,9 @@
       }
       if (audioData) {
         contentHtml += `<audio controls src="${audioData}" class="chat-audio"></audio>`;
+      }
+      if (videoData) {
+        contentHtml += `<video controls src="${videoData}" class="chat-video"></video>`;
       }
 
       messageDiv.innerHTML = `
