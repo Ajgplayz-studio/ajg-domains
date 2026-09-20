@@ -93,10 +93,16 @@
         <div class="p-3">
           <div class="relative">
             <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-gray-400"></i>
-            <input type="text" id="userSearchInput" oninput="handleUserSearch(this.value)" placeholder="Search users..." class="w-full bg-gray-900 text-xs rounded-lg pl-8 pr-3 py-2 text-white placeholder-gray-500 border border-gray-700 focus:outline-none focus:border-indigo-500">
+            <input type="text" id="userSearchInput" oninput="handleUserSearch(this.value)" placeholder="Search users..." class="w-full bg-gray-900 text-xs rounded-lg pl-8 pr-8 py-2 text-white placeholder-gray-500 border border-gray-700 focus:outline-none focus:border-indigo-500 transition">
+            <button id="clearSearchBtn" onclick="clearUserSearch()" class="hidden absolute right-2.5 top-2 text-xs text-gray-400 hover:text-white transition">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
           </div>
         </div>
-        <div class="px-3 pb-1 text-[11px] font-bold uppercase text-gray-400 tracking-wider">Direct Messages</div>
+        <div class="px-3 pb-1 text-[11px] font-bold uppercase text-gray-400 tracking-wider flex justify-between items-center">
+          <span>Direct Messages</span>
+          <span id="userSearchResultsCount" class="text-[10px] text-indigo-400 font-normal hidden"></span>
+        </div>
         <div id="usersList" class="flex-1 overflow-y-auto p-2 space-y-1">
           <!-- Rendered via JS -->
         </div>
@@ -218,6 +224,20 @@
     let isRegisterMode = false;
     let activeAdminTab = 'users';
 
+    // Auto-detect Firebase configuration if available in the environment
+    try {
+      if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+        const firebaseConfig = typeof __firebase_config === 'string' ? JSON.parse(__firebase_config) : __firebase_config;
+        const app = initializeApp(firebaseConfig);
+        db = getDatabase(app);
+        useFirebase = true;
+        console.log("AJG-Connect: Connected to Firebase Realtime Cloud Database");
+      }
+    } catch (e) {
+      console.warn("AJG-Connect: Firebase unavailable, operating in Local Storage mode", e);
+      useFirebase = false;
+    }
+
     const defaultLocalDb = {
       users: {
         "ajgplayz": { username: "Ajgplayz", password: "IH8People", createdAt: Date.now() }
@@ -254,6 +274,15 @@
       triggerDataUpdates();
     }
 
+    function seedLocalAdmin() {
+      const local = getLocalDb();
+      if (!local.users || !local.users.ajgplayz) {
+        local.users = local.users || {};
+        local.users.ajgplayz = { username: "Ajgplayz", password: "IH8People", createdAt: Date.now() };
+        saveLocalDb(local);
+      }
+    }
+
     function seedAdminUserIfMissing() {
       if (useFirebase) {
         get(ref(db, 'users/ajgplayz')).then((snap) => {
@@ -262,16 +291,19 @@
               username: "Ajgplayz",
               password: "IH8People",
               createdAt: Date.now()
+            }).catch((err) => {
+              console.warn("Firebase write permission denied. Falling back to Local Storage mode.", err);
+              useFirebase = false;
+              seedLocalAdmin();
             });
           }
+        }).catch((err) => {
+          console.warn("Firebase read permission denied. Falling back to Local Storage mode.", err);
+          useFirebase = false;
+          seedLocalAdmin();
         });
       } else {
-        const local = getLocalDb();
-        if (!local.users || !local.users.ajgplayz) {
-          local.users = local.users || {};
-          local.users.ajgplayz = { username: "Ajgplayz", password: "IH8People", createdAt: Date.now() };
-          saveLocalDb(local);
-        }
+        seedLocalAdmin();
       }
     }
 
@@ -286,6 +318,20 @@
       }
       seedAdminUserIfMissing();
       triggerDataUpdates();
+
+      // Listen for changes across different tabs on the same device
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'ajg_connect_db') {
+          triggerDataUpdates();
+        }
+      });
+
+      // Polling loop for live background message updates (every 2 seconds)
+      setInterval(() => {
+        if (currentUser) {
+          triggerDataUpdates();
+        }
+      }, 2000);
     };
 
     window.toggleAuthMode = function() {
@@ -308,28 +354,7 @@
 
       const lowerUser = username.toLowerCase();
 
-      if (useFirebase) {
-        get(ref(db, `users/${lowerUser}`)).then((snap) => {
-          if (isRegisterMode) {
-            if (snap.exists()) {
-              errorEl.innerText = "Username is already taken!";
-              errorEl.classList.remove("hidden");
-            } else {
-              const userData = { username, password, createdAt: Date.now() };
-              set(ref(db, `users/${lowerUser}`), userData).then(() => {
-                completeAuth(userData);
-              });
-            }
-          } else {
-            if (!snap.exists() || snap.val().password !== password) {
-              errorEl.innerText = "Invalid username or password!";
-              errorEl.classList.remove("hidden");
-            } else {
-              completeAuth(snap.val());
-            }
-          }
-        });
-      } else {
+      const processLocalAuth = () => {
         const local = getLocalDb();
         if (isRegisterMode) {
           if (local.users && local.users[lowerUser]) {
@@ -349,6 +374,39 @@
             completeAuth(local.users[lowerUser]);
           }
         }
+      };
+
+      if (useFirebase) {
+        get(ref(db, `users/${lowerUser}`)).then((snap) => {
+          if (isRegisterMode) {
+            if (snap.exists()) {
+              errorEl.innerText = "Username is already taken!";
+              errorEl.classList.remove("hidden");
+            } else {
+              const userData = { username, password, createdAt: Date.now() };
+              set(ref(db, `users/${lowerUser}`), userData).then(() => {
+                completeAuth(userData);
+              }).catch((err) => {
+                console.warn("Firebase write error, falling back to LocalStorage:", err);
+                useFirebase = false;
+                processLocalAuth();
+              });
+            }
+          } else {
+            if (!snap.exists() || snap.val().password !== password) {
+              errorEl.innerText = "Invalid username or password!";
+              errorEl.classList.remove("hidden");
+            } else {
+              completeAuth(snap.val());
+            }
+          }
+        }).catch((err) => {
+          console.warn("Firebase permission error during auth, switching to LocalStorage:", err);
+          useFirebase = false;
+          processLocalAuth();
+        });
+      } else {
+        processLocalAuth();
       }
     };
 
@@ -410,7 +468,11 @@
       };
 
       if (useFirebase) {
-        get(ref(db, 'servers')).then((snap) => render(snap.exists() ? snap.val() : {}));
+        get(ref(db, 'servers')).then((snap) => render(snap.exists() ? snap.val() : {})).catch(() => {
+          useFirebase = false;
+          const data = getLocalDb();
+          render(data.servers || {});
+        });
       } else {
         const data = getLocalDb();
         render(data.servers || {});
@@ -418,32 +480,122 @@
     }
 
     window.handleUserSearch = function(query) {
+      const clearBtn = document.getElementById("clearSearchBtn");
+      if (clearBtn) {
+        if (query && query.trim().length > 0) {
+          clearBtn.classList.remove("hidden");
+        } else {
+          clearBtn.classList.add("hidden");
+        }
+      }
       renderUsersList(query);
     };
 
-    function renderUsersList(searchQuery = '') {
+    window.clearUserSearch = function() {
+      const input = document.getElementById("userSearchInput");
+      if (input) {
+        input.value = "";
+        handleUserSearch("");
+      }
+    };
+
+    function renderUsersList(searchQuery = null) {
       if (!currentUser) return;
+      const searchInput = document.getElementById("userSearchInput");
+      const currentQuery = searchQuery !== null ? searchQuery : (searchInput ? searchInput.value : '');
+      const cleanQuery = currentQuery.trim().toLowerCase();
+
+      const clearBtn = document.getElementById("clearSearchBtn");
+      if (clearBtn) {
+        if (cleanQuery.length > 0) {
+          clearBtn.classList.remove("hidden");
+        } else {
+          clearBtn.classList.add("hidden");
+        }
+      }
+
       const usersContainer = document.getElementById("usersList");
+      const resultsCountEl = document.getElementById("userSearchResultsCount");
+
       const render = (users) => {
         usersContainer.innerHTML = '';
-        Object.values(users || {}).forEach((u) => {
-          if (u.username.toLowerCase() === currentUser.username.toLowerCase()) return;
-          if (searchQuery && !u.username.toLowerCase().includes(searchQuery.toLowerCase())) return;
+        if (!users) return;
 
+        let userArray = Object.values(users).filter(u => 
+          u.username && u.username.toLowerCase() !== currentUser.username.toLowerCase()
+        );
+
+        if (cleanQuery.length > 0) {
+          // Filter users by progressive search query
+          userArray = userArray.filter(u => u.username.toLowerCase().includes(cleanQuery));
+
+          // Sort by relevance: usernames starting with the search query come first
+          userArray.sort((a, b) => {
+            const aStartsWith = a.username.toLowerCase().startsWith(cleanQuery);
+            const bStartsWith = b.username.toLowerCase().startsWith(cleanQuery);
+            if (aStartsWith && !bStartsWith) return -1;
+            if (!aStartsWith && bStartsWith) return 1;
+            return a.username.localeCompare(b.username);
+          });
+
+          if (resultsCountEl) {
+            resultsCountEl.innerText = `${userArray.length} found`;
+            resultsCountEl.classList.remove("hidden");
+          }
+        } else {
+          if (resultsCountEl) {
+            resultsCountEl.classList.add("hidden");
+          }
+        }
+
+        if (userArray.length === 0) {
+          usersContainer.innerHTML = `
+            <div class="text-center text-gray-500 text-xs py-6">
+              <i class="fa-solid fa-user-slash block text-lg mb-1 opacity-50"></i>
+              No users matching "${currentQuery}"
+            </div>
+          `;
+          return;
+        }
+
+        userArray.forEach((u) => {
+          const isSelected = currentDMUsername && currentDMUsername.toLowerCase() === u.username.toLowerCase();
           const item = document.createElement("div");
-          item.className = `flex items-center space-x-2 p-2 rounded-lg cursor-pointer transition ${currentDMUsername === u.username ? 'bg-gray-700 text-white' : 'hover:bg-gray-800/60 text-gray-300'}`;
+          item.className = `flex items-center space-x-2.5 p-2 rounded-lg cursor-pointer transition ${isSelected ? 'bg-indigo-600/30 text-white border border-indigo-500/40' : 'hover:bg-gray-800/60 text-gray-300'}`;
           item.onclick = () => selectDMUser(u.username);
 
+          // Highlight matching search query characters
+          let displayName = u.username;
+          if (cleanQuery.length > 0) {
+            const idx = u.username.toLowerCase().indexOf(cleanQuery);
+            if (idx !== -1) {
+              const matchPart = u.username.substring(idx, idx + cleanQuery.length);
+              displayName = `${u.username.substring(0, idx)}<mark class="bg-indigo-500/40 text-white rounded px-0.5">${matchPart}</mark>${u.username.substring(idx + cleanQuery.length)}`;
+            }
+          }
+
           item.innerHTML = `
-            <div class="w-7 h-7 rounded-full bg-indigo-500/30 text-indigo-300 flex items-center justify-center text-xs font-bold">${u.username.charAt(0).toUpperCase()}</div>
-            <span class="text-xs font-medium truncate">${u.username}</span>
+            <div class="relative shrink-0">
+              <div class="w-8 h-8 rounded-full bg-indigo-600/30 text-indigo-300 flex items-center justify-center text-xs font-bold border border-indigo-500/20">
+                ${u.username.charAt(0).toUpperCase()}
+              </div>
+              <span class="w-2.5 h-2.5 bg-emerald-500 border-2 border-gray-800 rounded-full absolute bottom-0 right-0"></span>
+            </div>
+            <div class="truncate flex-1">
+              <div class="text-xs font-semibold truncate leading-tight">${displayName}</div>
+              <div class="text-[10px] text-gray-400">Click to start DM</div>
+            </div>
           `;
           usersContainer.appendChild(item);
         });
       };
 
       if (useFirebase) {
-        get(ref(db, 'users')).then((snap) => render(snap.exists() ? snap.val() : {}));
+        get(ref(db, 'users')).then((snap) => render(snap.exists() ? snap.val() : {})).catch(() => {
+          useFirebase = false;
+          const data = getLocalDb();
+          render(data.users || {});
+        });
       } else {
         const data = getLocalDb();
         render(data.users || {});
@@ -473,6 +625,11 @@
       if (useFirebase) {
         get(ref(db, `servers/${serverId}/channels`)).then((snap) => {
           render(serverId, snap.exists() ? snap.val() : {});
+        }).catch(() => {
+          useFirebase = false;
+          const data = getLocalDb();
+          const server = (data.servers || {})[serverId];
+          render(serverId, server ? (server.channels || {}) : {});
         });
       } else {
         const data = getLocalDb();
@@ -510,6 +667,12 @@
             const firstChanKey = Object.keys(snap.val())[0];
             selectChannel(firstChanKey);
           }
+        }).catch(() => {
+          useFirebase = false;
+          const data = getLocalDb();
+          const channels = (data.servers[serverId] || {}).channels || {};
+          const firstChanKey = Object.keys(channels)[0];
+          if (firstChanKey) selectChannel(firstChanKey);
         });
       } else {
         const data = getLocalDb();
@@ -528,6 +691,11 @@
       currentDMUsername = username;
       switchTab('dms');
       renderMessages();
+      renderUsersList();
+      setTimeout(() => {
+        const msgInput = document.getElementById("messageInput");
+        if (msgInput) msgInput.focus();
+      }, 50);
     }
 
     function getDMKey(u1, u2) {
@@ -593,7 +761,13 @@
       };
 
       if (useFirebase) {
-        get(ref(db, path)).then((snap) => renderList(snap.exists() ? snap.val() : {}));
+        get(ref(db, path)).then((snap) => renderList(snap.exists() ? snap.val() : {})).catch(() => {
+          useFirebase = false;
+          const local = getLocalDb();
+          const parts = path.split('/');
+          const data = (local[parts[0]] || {})[parts[1]] || {};
+          renderList(data);
+        });
       } else {
         const local = getLocalDb();
         const parts = path.split('/');
@@ -618,12 +792,7 @@
         timestamp: Date.now()
       };
 
-      if (useFirebase) {
-        set(ref(db, `${path}/${msgData.id}`), msgData).then(() => {
-          input.value = '';
-          renderMessages();
-        });
-      } else {
+      const saveLocalMsg = () => {
         const local = getLocalDb();
         const parts = path.split('/');
         local[parts[0]] = local[parts[0]] || {};
@@ -632,6 +801,19 @@
         saveLocalDb(local);
         input.value = '';
         renderMessages();
+      };
+
+      if (useFirebase) {
+        set(ref(db, `${path}/${msgData.id}`), msgData).then(() => {
+          input.value = '';
+          renderMessages();
+        }).catch((err) => {
+          console.warn("Firebase message save denied, switching to local:", err);
+          useFirebase = false;
+          saveLocalMsg();
+        });
+      } else {
+        saveLocalMsg();
       }
     };
 
@@ -654,19 +836,26 @@
         }
       };
 
-      if (useFirebase) {
-        set(ref(db, `servers/${serverId}`), serverData).then(() => {
-          closeModal("createServerModal");
-          triggerDataUpdates();
-          selectServer(serverId);
-        });
-      } else {
+      const saveLocalServer = () => {
         const local = getLocalDb();
         local.servers[serverId] = serverData;
         saveLocalDb(local);
         closeModal("createServerModal");
         triggerDataUpdates();
         selectServer(serverId);
+      };
+
+      if (useFirebase) {
+        set(ref(db, `servers/${serverId}`), serverData).then(() => {
+          closeModal("createServerModal");
+          triggerDataUpdates();
+          selectServer(serverId);
+        }).catch(() => {
+          useFirebase = false;
+          saveLocalServer();
+        });
+      } else {
+        saveLocalServer();
       }
     };
 
@@ -678,17 +867,24 @@
       const chanId = "chn_" + Date.now();
       const channelData = { id: chanId, name: name };
 
-      if (useFirebase) {
-        set(ref(db, `servers/${currentServerId}/channels/${chanId}`), channelData).then(() => {
-          closeModal("createChannelModal");
-          renderChannelsList(currentServerId);
-        });
-      } else {
+      const saveLocalChannel = () => {
         const local = getLocalDb();
         local.servers[currentServerId].channels[chanId] = channelData;
         saveLocalDb(local);
         closeModal("createChannelModal");
         renderChannelsList(currentServerId);
+      };
+
+      if (useFirebase) {
+        set(ref(db, `servers/${currentServerId}/channels/${chanId}`), channelData).then(() => {
+          closeModal("createChannelModal");
+          renderChannelsList(currentServerId);
+        }).catch(() => {
+          useFirebase = false;
+          saveLocalChannel();
+        });
+      } else {
+        saveLocalChannel();
       }
     };
 
@@ -795,7 +991,75 @@
         };
 
         if (useFirebase) {
-          get(ref(db, 'dms')).then(snap => render(snap.exists() ? snap.val() : {}));
+          get(ref(db, 'users')).then(snap => render(snap.exists() ? snap.val() : {})).catch(() => {
+            useFirebase = false;
+            render(getLocalDb().users || {});
+          });
+        } else {
+          render(getLocalDb().users || {});
+        }
+      } else if (activeAdminTab === 'servers') {
+        const render = (servers) => {
+          let html = `<div class="space-y-2">`;
+          Object.values(servers || {}).forEach(s => {
+            html += `
+              <div class="flex items-center justify-between bg-gray-900/60 p-3 rounded-lg border border-gray-700/50">
+                <div>
+                  <span class="font-bold text-xs text-white">${s.name}</span>
+                  <span class="text-[10px] text-gray-400 block">Owner: ${s.owner}</span>
+                </div>
+                <button onclick="adminDeleteServer('${s.id}')" class="text-xs bg-red-600/20 text-red-400 hover:bg-red-600 hover:text-white px-2.5 py-1 rounded transition">Delete</button>
+              </div>
+            `;
+          });
+          html += `</div>`;
+          container.innerHTML = html;
+        };
+
+        if (useFirebase) {
+          get(ref(db, 'servers')).then(snap => render(snap.exists() ? snap.val() : {})).catch(() => {
+            useFirebase = false;
+            render(getLocalDb().servers || {});
+          });
+        } else {
+          render(getLocalDb().servers || {});
+        }
+      } else if (activeAdminTab === 'dms') {
+        const render = (dms) => {
+          let html = `<div class="space-y-3">`;
+          if (!dms || Object.keys(dms).length === 0) {
+            html += `<div class="text-center text-xs text-gray-500 py-4">No active DM threads found in database.</div>`;
+          } else {
+            Object.entries(dms).forEach(([threadKey, msgs]) => {
+              const participants = threadKey.split('_').join(' & ');
+              html += `
+                <div class="bg-gray-900/60 p-3 rounded-lg border border-gray-700/50 space-y-2">
+                  <div class="flex items-center justify-between border-b border-gray-800 pb-2">
+                    <span class="font-bold text-xs text-indigo-400"><i class="fa-solid fa-comments"></i> ${participants}</span>
+                    <button onclick="adminDeleteDMThread('${threadKey}')" class="text-[10px] bg-red-600/20 text-red-400 hover:bg-red-600 hover:text-white px-2 py-0.5 rounded">Purge Thread</button>
+                  </div>
+                  <div class="space-y-1 max-h-32 overflow-y-auto pr-1">
+              `;
+              Object.values(msgs || {}).forEach(m => {
+                html += `
+                  <div class="text-[11px] text-gray-300 flex justify-between items-center">
+                    <span><strong class="text-white">${m.sender}:</strong> ${m.text}</span>
+                    <button onclick="adminDeleteDMMessage('${threadKey}', '${m.id}')" class="text-red-400 hover:text-red-300 text-[10px] ml-2"><i class="fa-solid fa-trash"></i></button>
+                  </div>
+                `;
+              });
+              html += `</div></div>`;
+            });
+          }
+          html += `</div>`;
+          container.innerHTML = html;
+        };
+
+        if (useFirebase) {
+          get(ref(db, 'dms')).then(snap => render(snap.exists() ? snap.val() : {})).catch(() => {
+            useFirebase = false;
+            render(getLocalDb().dms || {});
+          });
         } else {
           render(getLocalDb().dms || {});
         }
@@ -804,57 +1068,73 @@
 
     window.adminDeleteUser = function(username) {
       const lower = username.toLowerCase();
-      if (useFirebase) {
-        remove(ref(db, `users/${lower}`)).then(() => {
-          renderAdminContent();
-          triggerDataUpdates();
-        });
-      } else {
+      const deleteLocal = () => {
         const local = getLocalDb();
         delete local.users[lower];
         saveLocalDb(local);
         renderAdminContent();
         triggerDataUpdates();
+      };
+
+      if (useFirebase) {
+        remove(ref(db, `users/${lower}`)).then(() => {
+          renderAdminContent();
+          triggerDataUpdates();
+        }).catch(() => {
+          useFirebase = false;
+          deleteLocal();
+        });
+      } else {
+        deleteLocal();
       }
     };
 
     window.adminDeleteServer = function(serverId) {
-      if (useFirebase) {
-        remove(ref(db, `servers/${serverId}`)).then(() => {
-          renderAdminContent();
-          triggerDataUpdates();
-        });
-      } else {
+      const deleteLocal = () => {
         const local = getLocalDb();
         delete local.servers[serverId];
         saveLocalDb(local);
         renderAdminContent();
         triggerDataUpdates();
+      };
+
+      if (useFirebase) {
+        remove(ref(db, `servers/${serverId}`)).then(() => {
+          renderAdminContent();
+          triggerDataUpdates();
+        }).catch(() => {
+          useFirebase = false;
+          deleteLocal();
+        });
+      } else {
+        deleteLocal();
       }
     };
 
     window.adminDeleteDMThread = function(threadKey) {
-      if (useFirebase) {
-        remove(ref(db, `dms/${threadKey}`)).then(() => {
-          renderAdminContent();
-          renderMessages();
-        });
-      } else {
+      const deleteLocal = () => {
         const local = getLocalDb();
         delete local.dms[threadKey];
         saveLocalDb(local);
         renderAdminContent();
         renderMessages();
+      };
+
+      if (useFirebase) {
+        remove(ref(db, `dms/${threadKey}`)).then(() => {
+          renderAdminContent();
+          renderMessages();
+        }).catch(() => {
+          useFirebase = false;
+          deleteLocal();
+        });
+      } else {
+        deleteLocal();
       }
     };
 
     window.adminDeleteDMMessage = function(threadKey, msgId) {
-      if (useFirebase) {
-        remove(ref(db, `dms/${threadKey}/${msgId}`)).then(() => {
-          renderAdminContent();
-          renderMessages();
-        });
-      } else {
+      const deleteLocal = () => {
         const local = getLocalDb();
         if (local.dms[threadKey]) {
           delete local.dms[threadKey][msgId];
@@ -862,6 +1142,18 @@
           renderAdminContent();
           renderMessages();
         }
+      };
+
+      if (useFirebase) {
+        remove(ref(db, `dms/${threadKey}/${msgId}`)).then(() => {
+          renderAdminContent();
+          renderMessages();
+        }).catch(() => {
+          useFirebase = false;
+          deleteLocal();
+        });
+      } else {
+        deleteLocal();
       }
     };
   </script>
