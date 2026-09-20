@@ -4,219 +4,364 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ajg-drive - Cloud Storage</title>
-    <!-- Tailwind CSS & Google Fonts -->
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Google Material Icons -->
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Roboto', sans-serif; }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-900 h-screen flex overflow-hidden">
+<body class="bg-white h-screen overflow-hidden flex flex-col select-none">
 
-    <!-- APP DASHBOARD CONTAINER -->
-    <div id="appContainer" class="flex h-full w-full">
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, query, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Firebase handles
+        window.firebaseModules = {
+            initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged,
+            getFirestore, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, query, getDocs
+        };
+    </script>
+
+    <!-- CUSTOM NOTIFICATION MODAL -->
+    <div id="customModal" class="hidden fixed inset-0 bg-black/40 items-center justify-center z-50">
+        <div class="bg-white rounded-xl p-6 w-full max-w-sm shadow-2xl border border-gray-100 text-center">
+            <span class="material-icons-outlined text-blue-600 text-4xl mb-2" id="modalIcon">info</span>
+            <h3 id="modalTitle" class="text-lg font-medium text-gray-800 mb-1">Notification</h3>
+            <p id="modalMessage" class="text-xs text-gray-500 mb-6">Message goes here...</p>
+            <button onclick="closeCustomModal()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg text-sm transition duration-200 cursor-pointer">OK</button>
+        </div>
+    </div>
+
+    <!-- MAIN APP DASHBOARD CONTAINER -->
+    <div id="mainAppContainer" class="flex h-full w-full overflow-hidden">
+        
         <!-- SIDEBAR -->
-        <aside class="w-64 bg-white border-r border-gray-200 flex flex-col p-3">
-            <div class="flex items-center gap-3 px-3 py-2 mb-3">
-                <span class="material-icons-outlined text-3xl text-blue-600">cloud</span>
-                <h1 class="text-xl font-medium text-gray-600">ajg-drive</h1>
+        <aside class="w-64 bg-white border-r border-gray-200 flex flex-col p-3 shrink-0">
+            <div class="flex items-center gap-3 px-3 py-2 mb-4">
+                <span class="material-icons-outlined text-blue-600 text-3xl">cloud</span>
+                <h1 class="text-xl font-medium text-gray-700">ajg-drive</h1>
             </div>
             
             <div class="px-1 mb-4">
-                <label class="flex items-center gap-3 bg-white border border-gray-300 hover:bg-gray-50 shadow-sm hover:shadow rounded-full px-6 py-3 text-sm font-medium cursor-pointer transition">
+                <button onclick="triggerFileUpload()" class="flex items-center gap-3 bg-white border border-gray-300 rounded-full px-6 py-3 text-sm font-medium shadow-sm hover:shadow-md hover:bg-gray-50 transition duration-200 cursor-pointer">
                     <span class="material-icons-outlined text-blue-600">add</span>
                     <span>New Upload</span>
-                    <input type="file" id="fileInput" class="hidden" onchange="handleFileUpload(event)">
-                </label>
+                </button>
+                <input type="file" id="realFileInput" class="hidden" onchange="handleFileSelected(event)">
             </div>
 
             <ul class="flex flex-col gap-1 flex-grow">
-                <li><a href="#" class="flex items-center gap-4 px-4 py-2.5 rounded-r-full text-sm font-medium bg-blue-50 text-blue-600"><span class="material-icons-outlined">folder</span>My Drive</a></li>
-                <li><a href="#" class="flex items-center gap-4 px-4 py-2.5 rounded-r-full text-sm font-medium text-gray-600 hover:bg-gray-50"><span class="material-icons-outlined">devices</span>Computers</a></li>
-                <li><a href="#" class="flex items-center gap-4 px-4 py-2.5 rounded-r-full text-sm font-medium text-gray-600 hover:bg-gray-50"><span class="material-icons-outlined">people</span>Shared with me</a></li>
-                <li><a href="#" class="flex items-center gap-4 px-4 py-2.5 rounded-r-full text-sm font-medium text-gray-600 hover:bg-gray-50"><span class="material-icons-outlined">schedule</span>Recent</a></li>
-                <li><a href="#" class="flex items-center gap-4 px-4 py-2.5 rounded-r-full text-sm font-medium text-gray-600 hover:bg-gray-50"><span class="material-icons-outlined">star</span>Starred</a></li>
-                <li><a href="#" class="flex items-center gap-4 px-4 py-2.5 rounded-r-full text-sm font-medium text-gray-600 hover:bg-gray-50"><span class="material-icons-outlined">delete</span>Trash</a></li>
+                <li><a href="#" class="flex items-center gap-4 px-4 py-2.5 rounded-r-full text-sm font-medium text-blue-700 bg-blue-50"><span class="material-icons-outlined">folder</span>My Drive</a></li>
+                <li><a href="#" class="flex items-center gap-4 px-4 py-2.5 rounded-r-full text-sm font-medium text-gray-600 hover:bg-gray-100"><span class="material-icons-outlined">devices</span>Computers</a></li>
+                <li><a href="#" class="flex items-center gap-4 px-4 py-2.5 rounded-r-full text-sm font-medium text-gray-600 hover:bg-gray-100"><span class="material-icons-outlined">people</span>Shared with me</a></li>
+                <li><a href="#" class="flex items-center gap-4 px-4 py-2.5 rounded-r-full text-sm font-medium text-gray-600 hover:bg-gray-100"><span class="material-icons-outlined">schedule</span>Recent</a></li>
+                <li><a href="#" class="flex items-center gap-4 px-4 py-2.5 rounded-r-full text-sm font-medium text-gray-600 hover:bg-gray-100"><span class="material-icons-outlined">star</span>Starred</a></li>
+                <li><a href="#" class="flex items-center gap-4 px-4 py-2.5 rounded-r-full text-sm font-medium text-gray-600 hover:bg-gray-100"><span class="material-icons-outlined">delete</span>Trash</a></li>
             </ul>
+
+            <div class="p-4 text-xs text-gray-500 border-t border-gray-200">
+                <p>Storage used: <strong id="storageText">0 KB</strong> (Database Linked)</p>
+                <p id="userIdDisplay" class="text-[10px] text-gray-400 mt-1 truncate">Connecting...</p>
+            </div>
         </aside>
 
-        <!-- MAIN WINDOW -->
-        <main class="flex-grow flex flex-col bg-gray-50 rounded-l-2xl border border-gray-200 overflow-hidden m-2 ml-0">
-            <header class="flex items-center justify-between px-6 bg-white border-b border-gray-200 h-16">
-                <div class="flex items-center bg-gray-100 rounded-lg px-4 py-2 w-1/2 max-w-2xl focus-within:bg-white focus-within:shadow border border-transparent focus-within:border-gray-200 transition">
+        <!-- MAIN VIEWPORT -->
+        <main class="flex-grow flex flex-col bg-gray-50 rounded-l-2xl border border-gray-200 m-2 overflow-hidden shadow-sm">
+            <header class="flex items-center justify-between px-6 bg-white border-b border-gray-200 h-16 shrink-0">
+                <div class="flex items-center bg-gray-100 rounded-lg px-4 py-2 w-1/2 max-w-2xl focus-within:bg-white focus-within:shadow-sm focus-within:border-gray-300 border border-transparent transition duration-200">
                     <span class="material-icons-outlined text-gray-500">search</span>
-                    <input type="text" id="searchInput" placeholder="Search in ajg-drive" onkeyup="filterFiles()" class="border-none outline-none bg-transparent w-full ml-3 text-sm">
+                    <input type="text" id="searchInput" placeholder="Search in ajg-drive" onkeyup="filterFiles()" class="border-none outline-none bg-transparent w-full ml-3 text-sm text-gray-800">
                 </div>
-                <div class="flex items-center gap-3">
-                    <span class="material-icons-outlined text-gray-600 cursor-pointer">settings</span>
+                <div class="flex items-center gap-4">
+                    <span class="material-icons-outlined text-gray-600 cursor-pointer hover:text-gray-800">settings</span>
                     <div class="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-medium text-sm">AJ</div>
                 </div>
             </header>
 
             <div class="flex-grow bg-white p-6 overflow-y-auto">
+                <!-- Folders Section -->
                 <div class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-4">Folders</div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8" id="folderGrid"></div>
+                <div id="folderGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8"></div>
 
+                <!-- Files Section -->
                 <div class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-4">Files</div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" id="fileGrid"></div>
+                <div id="fileGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
             </div>
         </main>
     </div>
 
-    <!-- PUBLIC DOWNLOAD PORTAL (Initially Hidden) -->
-    <div id="downloadPortal" class="hidden fixed inset-0 bg-gray-100 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-xl border border-gray-200 max-w-md w-full p-8 text-center">
-            <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span class="material-icons-outlined text-3xl">cloud_download</span>
-            </div>
-            <h2 class="text-xl font-bold text-gray-900 mb-1" id="portalFileName">Filename.ext</h2>
-            <p class="text-sm text-gray-500 mb-6" id="portalFileSize">0 KB</p>
-            <button onclick="downloadSharedFile()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-xl shadow transition mb-3">
-                Download File
-            </button>
-            <a href="?" class="text-xs text-gray-500 hover:underline">Go to ajg-drive Home</a>
-        </div>
-    </div>
-
-    <!-- SHARE LINK MODAL -->
-    <div class="modal hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center" id="shareModal">
-        <div class="bg-white p-6 rounded-xl shadow-xl w-[420px]">
-            <h3 class="text-lg font-medium text-gray-900 mb-2">Public Share Link</h3>
-            <p class="text-xs text-gray-500 mb-3">Copy this link or use TinyURL to make it shorter:</p>
+    <!-- PUBLIC LINK SHARING MODAL -->
+    <div id="shareModal" class="hidden fixed inset-0 bg-black/40 items-center justify-center z-50">
+        <div class="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl border border-gray-100">
+            <h3 class="text-lg font-medium text-gray-800 mb-2">Public Share Link</h3>
+            <p class="text-xs text-gray-500 mb-4">Anyone with this database-backed public link can view and download this file instantly.</p>
             
-            <div class="flex gap-2 mb-3">
-                <input type="text" id="shareLinkInput" readonly class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-xs text-gray-600 outline-none select-all">
-                <button onclick="copyShareLink()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap">Copy</button>
+            <div class="flex gap-2 mb-4">
+                <input type="text" id="publicLinkInput" readonly class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-600 outline-none select-all">
+                <button onclick="copyPublicLink()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-sm shrink-0 transition duration-200 cursor-pointer">Copy</button>
             </div>
 
-            <div class="flex items-center justify-between mb-4">
-                <button onclick="shortenWithTinyURL()" id="tinyBtn" class="text-xs text-blue-600 hover:underline font-medium flex items-center gap-1">
+            <div class="flex items-center justify-between mb-6">
+                <button onclick="shortenWithTinyURL()" id="tinyBtn" class="text-xs text-blue-600 hover:underline font-medium flex items-center gap-1 cursor-pointer">
                     <span class="material-icons-outlined text-sm">link</span> Shorten with TinyURL
                 </button>
                 <span id="tinyStatus" class="text-[10px] text-gray-400"></span>
             </div>
 
             <div class="flex justify-end">
-                <button onclick="closeShareModal()" class="border border-gray-300 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">Close</button>
+                <button onclick="closeShareModal()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-4 py-2 rounded-lg text-sm transition duration-200 cursor-pointer">Close</button>
             </div>
         </div>
     </div>
 
-    <!-- CUSTOM NOTIFICATION MODAL -->
-    <div id="alertModal" class="hidden fixed inset-0 bg-black/30 z-50 flex items-center justify-center">
-        <div class="bg-white rounded-xl p-6 max-w-sm w-full text-center shadow-2xl border border-gray-100">
-            <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-3">
-                <span class="material-icons-outlined text-2xl">info</span>
+    <!-- PUBLIC FRIEND DOWNLOAD PORTAL VIEW -->
+    <div id="publicDownloadView" class="hidden fixed inset-0 bg-gray-100 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-xl border border-gray-200 p-8 max-w-md w-full text-center">
+            <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 overflow-hidden">
+                <span class="material-icons-outlined text-3xl" id="publicFileIcon">description</span>
             </div>
-            <p id="alertMessage" class="text-sm text-gray-700 mb-5 font-medium"></p>
-            <button onclick="closeAlert()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-medium w-full transition">OK</button>
+            <h2 id="publicFileName" class="text-xl font-medium text-gray-800 mb-1">Loading File...</h2>
+            <p id="publicFileSize" class="text-xs text-gray-500 mb-6">Fetching from cloud database...</p>
+            
+            <div id="downloadActionContainer" class="hidden">
+                <p class="text-sm text-gray-600 mb-6">A friend has shared this file with you publicly via database link. Click below to download.</p>
+                <button onclick="executePublicDownload()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-xl shadow transition duration-200 flex items-center justify-center gap-2 mb-3 cursor-pointer">
+                    <span class="material-icons-outlined">download</span>
+                    <span>Download File</span>
+                </button>
+            </div>
+
+            <div id="downloadLoadingSpinner" class="text-xs text-blue-600 animate-pulse mb-6 font-medium">Resolving cloud storage records...</div>
+            
+            <button onclick="exitPublicDownload()" class="text-sm text-gray-500 hover:text-gray-700 font-medium cursor-pointer">Open ajg-drive Dashboard</button>
         </div>
     </div>
 
     <script>
-        let folders = JSON.parse(localStorage.getItem('ajg_folders')) || [
+        let db, auth, userId;
+        let folders = [
             { id: 1, name: "Project Documents" },
             { id: 2, name: "Media & Assets" }
         ];
+        let files = [];
+        let activePublicFile = null;
 
-        let files = JSON.parse(localStorage.getItem('ajg_files')) || [];
-        let activeDownloadData = null;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'ajg-drive-default-app';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-        function showAlert(msg) {
-            document.getElementById('alertMessage').innerText = msg;
-            document.getElementById('alertModal').classList.remove('hidden');
-        }
+        window.addEventListener('DOMContentLoaded', async () => {
+            if (firebaseConfig) {
+                const { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, getFirestore } = window.firebaseModules;
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
 
-        function closeAlert() {
-            document.getElementById('alertModal').classList.add('hidden');
-        }
+                try {
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                    userId = auth.currentUser ? auth.currentUser.uid : crypto.randomUUID();
+                    document.getElementById('userIdDisplay').innerText = `User ID: ${userId.substring(0, 10)}...`;
+                } catch (e) {
+                    console.error("Auth error:", e);
+                    userId = crypto.randomUUID();
+                }
+            } else {
+                userId = crypto.randomUUID();
+            }
 
-        function saveData() {
-            try {
-                localStorage.setItem('ajg_folders', JSON.stringify(folders));
-                localStorage.setItem('ajg_files', JSON.stringify(files));
-            } catch (e) {
-                showAlert("Warning: Local storage limit reached. Some files may not persist on refresh.");
+            // Check if route is a public download portal (#shared=FILE_ID)
+            handleInitialRoute();
+        });
+
+        async function handleInitialRoute() {
+            const hash = window.location.hash;
+            let fileId = null;
+
+            if (hash && hash.includes('shared=')) {
+                const parts = hash.split('shared=');
+                if (parts.length > 1) {
+                    fileId = parts[1].split('&')[0];
+                }
+            } else {
+                const urlParams = new URLSearchParams(window.location.search);
+                fileId = urlParams.get('shared');
+            }
+
+            if (fileId) {
+                await fetchAndShowPublicDownload(fileId);
+            } else {
+                if (db && auth) {
+                    initFirestoreListener();
+                } else {
+                    // Fallback to local storage or defaults if firebase is absent
+                    files = JSON.parse(localStorage.getItem('ajg_files')) || [
+                        { id: "sample-1", name: "Welcome.txt", type: "text/plain", size: "14 B", data: btoa("Welcome to ajg-drive with permanent database sync!") }
+                    ];
+                    render();
+                }
             }
         }
 
+        function initFirestoreListener() {
+            const { collection, onSnapshot } = window.firebaseModules;
+            // RULE 1: Public data path for shared files/cloud repository
+            const filesCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'files');
+
+            onSnapshot(filesCollectionRef, (snapshot) => {
+                files = [];
+                snapshot.forEach((docSnap) => {
+                    files.push({ id: docSnap.id, ...docSnap.data() });
+                });
+                render();
+            }, (error) => {
+                console.error("Firestore error:", error);
+                showCustomModal("Sync Error", "Could not sync files with cloud database.", "error");
+            });
+        }
+
         function render() {
+            // Render Folders
             const folderGrid = document.getElementById('folderGrid');
             folderGrid.innerHTML = folders.map(f => `
-                <div class="border border-gray-200 rounded-xl p-3 flex items-center gap-3 bg-white hover:bg-gray-50 hover:shadow-sm cursor-pointer transition">
+                <div class="border border-gray-200 rounded-lg p-3 flex items-center gap-3 bg-white hover:bg-gray-50 hover:shadow-sm cursor-pointer transition duration-200">
                     <span class="material-icons-outlined text-gray-500">folder</span>
                     <span class="text-sm font-medium text-gray-800 truncate">${f.name}</span>
                 </div>
             `).join('');
 
+            // Render Files
             const fileGrid = document.getElementById('fileGrid');
             if (files.length === 0) {
-                fileGrid.innerHTML = `<p class="text-xs text-gray-400 col-span-full">No uploaded files yet. Click "New Upload" to add files.</p>`;
-                return;
+                fileGrid.innerHTML = `<p class="text-xs text-gray-400 col-span-full">No files uploaded yet. Click "New Upload" to store files permanently in the database.</p>`;
+            } else {
+                fileGrid.innerHTML = files.map(file => `
+                    <div class="border border-gray-200 rounded-xl overflow-hidden bg-white hover:border-blue-500 hover:shadow-md transition duration-200 flex flex-col group">
+                        <div class="h-28 bg-gray-50 border-b border-gray-100 flex items-center justify-center relative overflow-hidden">
+                            ${file.type && file.type.startsWith('image/') ? 
+                                `<img src="${file.data}" class="w-full h-full object-cover">` : 
+                                `<span class="material-icons-outlined text-4xl text-gray-400">${getFileIcon(file.type || '')}</span>`
+                            }
+                        </div>
+                        <div class="p-3 flex items-center justify-between">
+                            <div class="truncate mr-2">
+                                <h4 class="text-xs font-medium text-gray-800 truncate">${file.name}</h4>
+                                <p class="text-[11px] text-gray-500 mt-0.5">${file.size}</p>
+                            </div>
+                            <button onclick="openShareModal('${file.id}')" class="p-1 rounded-full hover:bg-gray-100 text-gray-500 hover:text-blue-600 transition cursor-pointer" title="Get Public Database Link">
+                                <span class="material-icons-outlined text-lg">share</span>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
             }
 
-            fileGrid.innerHTML = files.map(file => `
-                <div class="border border-gray-200 rounded-xl overflow-hidden bg-white hover:border-blue-400 hover:shadow transition group flex flex-col">
-                    <div class="h-28 bg-gray-50 flex items-center justify-center border-b border-gray-100 relative">
-                        <span class="material-icons-outlined text-4xl text-gray-400">${getFileIcon(file.type)}</span>
-                    </div>
-                    <div class="p-3 flex items-center justify-between">
-                        <div class="truncate mr-2">
-                            <h4 class="text-xs font-medium text-gray-800 truncate">${file.name}</h4>
-                            <p class="text-[10px] text-gray-400">${file.size}</p>
-                        </div>
-                        <button onclick="openShareModal('${file.id}')" title="Get Public Link" class="text-gray-400 hover:text-blue-600 transition">
-                            <span class="material-icons-outlined text-lg">link</span>
-                        </button>
-                    </div>
-                </div>
-            `).join('');
+            updateStorageIndicator();
         }
 
-        function getFileIcon(type) {
-            if (type && type.includes('image')) return 'image';
-            if (type && type.includes('pdf')) return 'picture_as_pdf';
-            return 'insert_drive_file';
+        function getFileIcon(mimeType) {
+            if (mimeType.includes('pdf')) return 'picture_as_pdf';
+            if (mimeType.includes('image')) return 'image';
+            if (mimeType.includes('video')) return 'movie';
+            if (mimeType.includes('audio')) return 'audiotrack';
+            return 'description';
         }
 
-        function handleFileUpload(event) {
+        function updateStorageIndicator() {
+            let totalBytes = files.reduce((acc, f) => {
+                return acc + (f.data ? (f.data.length * 3 / 4) : 0);
+            }, 0);
+
+            let formatted = totalBytes > 1024 * 1024 ? (totalBytes / (1024*1024)).toFixed(1) + ' MB' : (totalBytes / 1024).toFixed(1) + ' KB';
+            if (totalBytes === 0) formatted = '0 KB';
+
+            document.getElementById('storageText').innerText = formatted;
+        }
+
+        // Real File Upload Handler with Firestore Persistence
+        function triggerFileUpload() {
+            document.getElementById('realFileInput').click();
+        }
+
+        async function handleFileSelected(event) {
             const uploadedFile = event.target.files[0];
             if (!uploadedFile) return;
 
             const reader = new FileReader();
-            reader.onload = function(e) {
-                const newFile = {
-                    id: 'f_' + Math.random().toString(36).substr(2, 9),
+            reader.onload = async function(e) {
+                const base64Data = e.target.result;
+                const sizeFormatted = uploadedFile.size > 1024 * 1024 ? 
+                    (uploadedFile.size / (1024 * 1024)).toFixed(1) + ' MB' : 
+                    (uploadedFile.size / 1024).toFixed(1) + ' KB';
+
+                const newFileRecord = {
                     name: uploadedFile.name,
-                    type: uploadedFile.type,
-                    size: (uploadedFile.size / 1024 > 1024) ? (uploadedFile.size / (1024*1024)).toFixed(1) + ' MB' : (uploadedFile.size / 1024).toFixed(1) + ' KB',
-                    data: e.target.result
+                    type: uploadedFile.type || 'application/octet-stream',
+                    size: sizeFormatted,
+                    data: base64Data,
+                    createdAt: Date.now()
                 };
-                files.push(newFile);
-                saveData();
-                render();
-                showAlert("File uploaded successfully!");
+
+                if (db && auth) {
+                    try {
+                        const { collection, addDoc } = window.firebaseModules;
+                        // RULE 1: Save to correct public path
+                        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'files'), newFileRecord);
+                        showCustomModal("Uploaded!", "File permanently saved to database.", "check_circle");
+                    } catch (err) {
+                        console.error("Upload error:", err);
+                        showCustomModal("Error", "Failed to upload file to database.", "error");
+                    }
+                } else {
+                    newFileRecord.id = 'file-' + Date.now();
+                    files.push(newFileRecord);
+                    localStorage.setItem('ajg_files', JSON.stringify(files));
+                    render();
+                }
+
+                event.target.value = '';
             };
             reader.readAsDataURL(uploadedFile);
-            event.target.value = '';
         }
 
+        // Public Share Link Modal Handler
         function openShareModal(fileId) {
-            const file = files.find(f => f.id == fileId);
-            if (!file) return;
+            const targetFile = files.find(f => f.id == fileId);
+            if (!targetFile) return;
 
-            // Pack file details directly into URL payload without saving to localStorage quota
-            const payload = encodeURIComponent(btoa(JSON.stringify({ name: file.name, size: file.size, data: file.data })));
-            const cleanUrl = window.location.origin + window.location.pathname + '#shared=' + payload;
-            
-            document.getElementById('shareLinkInput').value = cleanUrl;
-            document.getElementById('tinyStatus').innerText = '';
             document.getElementById('shareModal').classList.remove('hidden');
+            document.getElementById('shareModal').classList.add('flex');
+
+            const baseUrl = window.location.origin + window.location.pathname;
+            const publicLink = `${baseUrl}#shared=${targetFile.id}`;
+
+            document.getElementById('publicLinkInput').value = publicLink;
+            document.getElementById('tinyStatus').innerText = '';
+        }
+
+        function closeShareModal() {
+            document.getElementById('shareModal').classList.remove('flex');
+            document.getElementById('shareModal').classList.add('hidden');
+        }
+
+        function copyPublicLink() {
+            const input = document.getElementById('publicLinkInput');
+            input.select();
+            document.execCommand('copy');
+            closeShareModal();
+            showCustomModal("Copied!", "Database public share link copied to clipboard successfully.", "check_circle");
         }
 
         async function shortenWithTinyURL() {
-            const inputField = document.getElementById('shareLinkInput');
+            const inputField = document.getElementById('publicLinkInput');
             const statusLabel = document.getElementById('tinyStatus');
             const originalUrl = inputField.value;
 
@@ -228,72 +373,101 @@
                     inputField.value = shortUrl;
                     statusLabel.innerText = "Done!";
                 } else {
-                    statusLabel.innerText = "Failed (using standard link)";
+                    statusLabel.innerText = "Failed";
                 }
             } catch (err) {
-                statusLabel.innerText = "CORS restricted. Standard link used.";
+                statusLabel.innerText = "CORS restricted. Using direct link.";
             }
         }
 
-        function closeShareModal() {
-            document.getElementById('shareModal').classList.add('hidden');
+        // Public Friend Download Portal View
+        async function fetchAndShowPublicDownload(fileId) {
+            document.getElementById('mainAppContainer').classList.add('hidden');
+            document.getElementById('publicDownloadView').classList.remove('hidden');
+
+            if (db && auth) {
+                try {
+                    const { doc, getDoc } = window.firebaseModules;
+                    // RULE 1: Retrieve exact document from public collection path
+                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'files', fileId);
+                    const docSnap = await getDoc(docRef);
+
+                    if (docSnap.exists()) {
+                        activePublicFile = { id: docSnap.id, ...docSnap.data() };
+                        document.getElementById('publicFileName').innerText = activePublicFile.name;
+                        document.getElementById('publicFileSize').innerText = `${activePublicFile.size} • Shared via ajg-drive Database Link`;
+                        document.getElementById('publicFileIcon').innerText = getFileIcon(activePublicFile.type || '');
+                        
+                        document.getElementById('downloadLoadingSpinner').classList.add('hidden');
+                        document.getElementById('downloadActionContainer').classList.remove('hidden');
+                        return;
+                    }
+                } catch (e) {
+                    console.error("Fetch shared file error:", e);
+                }
+            } else {
+                // Fallback check local
+                const target = files.find(f => f.id == fileId);
+                if (target) {
+                    activePublicFile = target;
+                    document.getElementById('publicFileName').innerText = target.name;
+                    document.getElementById('publicFileSize').innerText = `${target.size} • Shared via ajg-drive Link`;
+                    document.getElementById('publicFileIcon').innerText = getFileIcon(target.type || '');
+                    
+                    document.getElementById('downloadLoadingSpinner').classList.add('hidden');
+                    document.getElementById('downloadActionContainer').classList.remove('hidden');
+                    return;
+                }
+            }
+
+            document.getElementById('publicFileName').innerText = "File Not Found";
+            document.getElementById('publicFileSize').innerText = "The shared file ID does not exist in the database or was removed.";
+            document.getElementById('downloadLoadingSpinner').classList.add('hidden');
         }
 
-        function copyShareLink() {
-            const input = document.getElementById('shareLinkInput');
-            input.select();
-            navigator.clipboard.writeText(input.value);
-            showAlert("Share link copied to clipboard!");
-            closeShareModal();
-        }
+        function executePublicDownload() {
+            if (!activePublicFile) return;
 
-        function downloadSharedFile() {
-            if (!activeDownloadData) return;
             const a = document.createElement('a');
-            a.href = activeDownloadData.data;
-            a.download = activeDownloadData.name;
+            a.href = activePublicFile.data;
+            a.download = activePublicFile.name;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
         }
 
-        function checkPublicRoute() {
-            const hash = window.location.hash;
-            if (hash.startsWith('#shared=')) {
-                try {
-                    const encodedData = hash.replace('#shared=', '');
-                    const fileObj = JSON.parse(atob(decodeURIComponent(encodedData)));
-
-                    if (fileObj && fileObj.data) {
-                        activeDownloadData = fileObj;
-                        document.getElementById('portalFileName').innerText = fileObj.name;
-                        document.getElementById('portalFileSize').innerText = fileObj.size;
-                        
-                        document.getElementById('appContainer').classList.add('hidden');
-                        document.getElementById('downloadPortal').classList.remove('hidden');
-                        return;
-                    }
-                } catch (e) {
-                    console.error(e);
-                }
-                showAlert("File not found or link is invalid.");
-            }
+        function exitPublicDownload() {
+            window.location.hash = '';
+            document.getElementById('publicDownloadView').classList.add('hidden');
+            document.getElementById('mainAppContainer').classList.remove('hidden');
+            render();
         }
 
         function filterFiles() {
             const query = document.getElementById('searchInput').value.toLowerCase();
             const fileCards = document.querySelectorAll('#fileGrid > div');
+            
             files.forEach((file, index) => {
+                const matches = file.name.toLowerCase().includes(query);
                 if (fileCards[index]) {
-                    fileCards[index].style.display = file.name.toLowerCase().includes(query) ? 'flex' : 'none';
+                    fileCards[index].style.display = matches ? 'flex' : 'none';
                 }
             });
         }
 
-        window.onload = function() {
-            checkPublicRoute();
-            render();
-        };
+        // Custom Modal helper
+        function showCustomModal(title, message, iconName = 'info') {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalMessage').innerText = message;
+            document.getElementById('modalIcon').innerText = iconName;
+            document.getElementById('customModal').classList.remove('hidden');
+            document.getElementById('customModal').classList.add('flex');
+        }
+
+        function closeCustomModal() {
+            document.getElementById('customModal').classList.remove('flex');
+            document.getElementById('customModal').classList.add('hidden');
+        }
     </script>
 </body>
 </html>
