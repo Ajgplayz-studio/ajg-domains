@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-900 text-gray-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AJG-Connect</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    /* Custom dark scrollbar styling for Discord look and feel */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #2f3136; }
+    ::-webkit-scrollbar-thumb { background: #202225; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #040405; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="h-full font-sans antialiased bg-gray-900 text-gray-100 flex overflow-hidden select-none">
+
+  <!-- AUTH MODAL -->
+  <div id="authModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="bg-gray-800 border border-gray-700 w-full max-w-md p-6 rounded-xl shadow-2xl space-y-5">
+      <div class="text-center space-y-1">
+        <h2 class="text-2xl font-bold text-indigo-400 flex items-center justify-center gap-2">
+          <i class="fa-solid font-bold fa-bolt text-indigo-500"></i> AJG-Connect
+        </h2>
+        <p class="text-sm text-gray-400" id="authSubtitle">Log in to join your communities</p>
+      </div>
+
+      <div id="authError" class="hidden bg-red-900/40 border border-red-500/50 text-red-200 text-xs p-3 rounded-lg text-center"></div>
+
+      <form id="authForm" onsubmit="handleAuthSubmit(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold uppercase text-gray-400 mb-1">Username</label>
+          <input type="text" id="authUsername" required class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition" placeholder="Enter username...">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold uppercase text-gray-400 mb-1">Password</label>
+          <input type="password" id="authPassword" required class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition" placeholder="••••••••">
+        </div>
+
+        <button type="submit" id="authSubmitBtn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 rounded-lg transition shadow-md">
+          Log In
+        </button>
+      </form>
+
+      <div class="text-center text-xs text-gray-400">
+        <span id="authToggleText">Need an account?</span>
+        <button type="button" onclick="toggleAuthMode()" id="authToggleBtn" class="text-indigo-400 hover:underline font-semibold ml-1">Register</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN APP CONTAINER -->
+  <div id="appContainer" class="hidden flex-1 flex h-full overflow-hidden">
+
+    <!-- SERVER NAVIGATION SIDEBAR (LEFTMOST RAIL) -->
+    <div class="w-18 bg-gray-950 flex flex-col items-center py-3 space-y-3 border-r border-gray-800 z-20">
+      <!-- DM Button -->
+      <button onclick="switchTab('dms')" id="dmNavBtn" class="relative group w-12 h-12 rounded-2xl bg-gray-800 hover:bg-indigo-600 transition-all flex items-center justify-center text-indigo-400 hover:text-white">
+        <i class="fa-solid fa-message text-lg"></i>
+        <span class="absolute left-16 bg-gray-900 text-xs px-2 py-1 rounded-md shadow-lg whitespace-nowrap hidden group-hover:block z-30">Direct Messages</span>
+      </button>
+
+      <div class="w-8 h-[2px] bg-gray-800 rounded"></div>
+
+      <!-- Servers List Container -->
+      <div id="serversList" class="flex-1 w-full space-y-2 overflow-y-auto no-scrollbar flex flex-col items-center">
+        <!-- Rendered via JS -->
+      </div>
+
+      <!-- Add Server Button -->
+      <button onclick="openCreateServerModal()" class="group w-12 h-12 rounded-3xl hover:rounded-2xl bg-gray-800 hover:bg-emerald-600 transition-all flex items-center justify-center text-emerald-500 hover:text-white">
+        <i class="fa-solid fa-plus text-lg"></i>
+      </button>
+
+      <!-- Admin Panel Button (Exclusive to Ajgplayz) -->
+      <button id="adminPanelBtn" onclick="openAdminModal()" class="hidden group w-12 h-12 rounded-2xl bg-amber-600/20 hover:bg-amber-600 transition-all border border-amber-500/30 flex items-center justify-center text-amber-400 hover:text-white">
+        <i class="fa-solid fa-shield-halved text-lg"></i>
+        <span class="absolute left-16 bg-gray-900 text-xs px-2 py-1 rounded-md shadow-lg whitespace-nowrap hidden group-hover:block z-30">Admin Panel</span>
+      </button>
+    </div>
+
+    <!-- CHANNELS / DM SIDEBAR -->
+    <div class="w-60 bg-gray-800 flex flex-col border-r border-gray-700/50">
+      <div class="h-12 border-b border-gray-900/60 px-4 flex items-center justify-between font-semibold text-sm shadow-sm" id="sidebarHeader">
+        <span>Channels</span>
+      </div>
+
+      <!-- DMs / SEARCH SIDEBAR VIEW -->
+      <div id="dmsSidebar" class="flex-1 flex flex-col overflow-hidden">
+        <div class="p-3">
+          <div class="relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-gray-400"></i>
+            <input type="text" id="userSearchInput" oninput="handleUserSearch(this.value)" placeholder="Search users..." class="w-full bg-gray-900 text-xs rounded-lg pl-8 pr-3 py-2 text-white placeholder-gray-500 border border-gray-700 focus:outline-none focus:border-indigo-500">
+          </div>
+        </div>
+        <div class="px-3 pb-1 text-[11px] font-bold uppercase text-gray-400 tracking-wider">Direct Messages</div>
+        <div id="usersList" class="flex-1 overflow-y-auto p-2 space-y-1">
+          <!-- Rendered via JS -->
+        </div>
+      </div>
+
+      <!-- CHANNELS SIDEBAR VIEW -->
+      <div id="channelsSidebar" class="hidden flex-1 flex flex-col overflow-hidden">
+        <div class="p-3 flex items-center justify-between">
+          <span class="text-[11px] font-bold uppercase text-gray-400 tracking-wider">Text Channels</span>
+          <button onclick="openCreateChannelModal()" class="text-gray-400 hover:text-white text-xs"><i class="fa-solid fa-plus"></i></button>
+        </div>
+        <div id="channelsList" class="flex-1 overflow-y-auto p-2 space-y-1">
+          <!-- Rendered via JS -->
+        </div>
+      </div>
+
+      <!-- CURRENT USER FOOTER -->
+      <div class="h-14 bg-gray-850 border-t border-gray-900/60 px-3 flex items-center justify-between bg-gray-900/50">
+        <div class="flex items-center space-x-2 truncate">
+          <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-sm text-white" id="userAvatar">?</div>
+          <div class="truncate">
+            <div class="text-xs font-semibold text-white truncate" id="currentUsername">User</div>
+            <div class="text-[10px] text-emerald-400 flex items-center gap-1"><span class="w-1.5 h-1.5 bg-emerald-400 rounded-full"></span> Online</div>
+          </div>
+        </div>
+        <button onclick="logout()" class="text-gray-400 hover:text-red-400 text-xs p-2 transition" title="Log Out"><i class="fa-solid fa-right-from-bracket"></i></button>
+      </div>
+    </div>
+
+    <!-- CHAT VIEW AREA -->
+    <div class="flex-1 flex flex-col bg-gray-700/30">
+      <!-- CHAT HEADER -->
+      <div class="h-12 border-b border-gray-800 px-4 flex items-center justify-between bg-gray-800/40 backdrop-blur">
+        <div class="flex items-center space-x-2">
+          <i class="text-gray-400" id="chatHeaderIcon">#</i>
+          <span class="font-bold text-white text-sm" id="chatTitle">Select a channel or DM</span>
+        </div>
+      </div>
+
+      <!-- MESSAGES DISPLAY AREA -->
+      <div id="messagesContainer" class="flex-1 overflow-y-auto p-4 space-y-4">
+        <!-- Messages rendered via JS -->
+      </div>
+
+      <!-- MESSAGE INPUT BOX -->
+      <div class="p-4 bg-gray-800/30 border-t border-gray-800">
+        <form id="messageForm" onsubmit="handleSendMessage(event)" class="flex items-center gap-2">
+          <input type="text" id="messageInput" placeholder="Message..." class="flex-1 bg-gray-800 border border-gray-700 text-sm text-white rounded-xl px-4 py-2.5 focus:outline-none focus:border-indigo-500 transition placeholder-gray-500">
+          <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition shadow-sm">
+            <i class="fa-solid fa-paper-plane"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- CREATE SERVER MODAL -->
+  <div id="createServerModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="bg-gray-800 border border-gray-700 w-full max-w-md p-6 rounded-xl space-y-4">
+      <h3 class="text-lg font-bold text-white">Create a Server</h3>
+      <input type="text" id="newServerName" placeholder="Server Name" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+      <div class="flex justify-end gap-2">
+        <button onclick="closeModal('createServerModal')" class="px-4 py-2 text-xs text-gray-400 hover:text-white">Cancel</button>
+        <button onclick="submitCreateServer()" class="px-4 py-2 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CREATE CHANNEL MODAL -->
+  <div id="createChannelModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="bg-gray-800 border border-gray-700 w-full max-w-md p-6 rounded-xl space-y-4">
+      <h3 class="text-lg font-bold text-white">Create Text Channel</h3>
+      <input type="text" id="newChannelName" placeholder="channel-name" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+      <div class="flex justify-end gap-2">
+        <button onclick="closeModal('createChannelModal')" class="px-4 py-2 text-xs text-gray-400 hover:text-white">Cancel</button>
+        <button onclick="submitCreateChannel()" class="px-4 py-2 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN PANEL MODAL (Ajgplayz ONLY) -->
+  <div id="adminModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="bg-gray-800 border border-amber-500/40 w-full max-w-3xl max-h-[85vh] p-6 rounded-xl flex flex-col space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-gray-700 pb-3">
+        <div class="flex items-center space-x-2 text-amber-400 font-bold text-lg">
+          <i class="fa-solid fa-shield-halved"></i>
+          <span>Admin Control Panel (Ajgplayz)</span>
+        </div>
+        <button onclick="closeModal('adminModal')" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <!-- Admin Tabs -->
+      <div class="flex space-x-2 border-b border-gray-700 pb-2">
+        <button onclick="switchAdminTab('users')" id="adminTabUsers" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">Users Database</button>
+        <button onclick="switchAdminTab('servers')" id="adminTabServers" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600">Servers Database</button>
+        <button onclick="switchAdminTab('dms')" id="adminTabDms" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600">DM Threads Moderation</button>
+      </div>
+
+      <!-- Admin Content Container -->
+      <div id="adminContent" class="flex-1 overflow-y-auto space-y-3 pr-1">
+        <!-- Rendered via JS -->
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getDatabase, ref, set, get, child, remove, onValue } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
+
+    // Global App State Variables
+    let db = null;
+    let useFirebase = false;
+    let currentUser = null;
+    let currentTab = 'dms'; // 'dms' or 'server'
+    let currentServerId = null;
+    let currentChannelId = null;
+    let currentDMUsername = null;
+    let isRegisterMode = false;
+    let activeAdminTab = 'users';
+
+    const defaultLocalDb = {
+      users: {
+        "ajgplayz": { username: "Ajgplayz", password: "IH8People", createdAt: Date.now() }
+      },
+      servers: {
+        "srv_general": {
+          id: "srv_general",
+          name: "AJG Hub",
+          owner: "Ajgplayz",
+          channels: {
+            "chn_welcome": { id: "chn_welcome", name: "welcome" }
+          }
+        }
+      },
+      messages: {
+        "srv_general_chn_welcome": [
+          { id: "m1", sender: "Ajgplayz", text: "Welcome to AJG-Connect!", timestamp: Date.now() }
+        ]
+      },
+      dms: {}
+    };
+
+    function getLocalDb() {
+      const data = localStorage.getItem("ajg_connect_db");
+      if (!data) {
+        localStorage.setItem("ajg_connect_db", JSON.stringify(defaultLocalDb));
+        return defaultLocalDb;
+      }
+      return JSON.parse(data);
+    }
+
+    function saveLocalDb(data) {
+      localStorage.setItem("ajg_connect_db", JSON.stringify(data));
+      triggerDataUpdates();
+    }
+
+    function seedAdminUserIfMissing() {
+      if (useFirebase) {
+        get(ref(db, 'users/ajgplayz')).then((snap) => {
+          if (!snap.exists()) {
+            set(ref(db, 'users/ajgplayz'), {
+              username: "Ajgplayz",
+              password: "IH8People",
+              createdAt: Date.now()
+            });
+          }
+        });
+      } else {
+        const local = getLocalDb();
+        if (!local.users || !local.users.ajgplayz) {
+          local.users = local.users || {};
+          local.users.ajgplayz = { username: "Ajgplayz", password: "IH8People", createdAt: Date.now() };
+          saveLocalDb(local);
+        }
+      }
+    }
+
+    window.onload = () => {
+      // Check for saved session
+      const savedUser = localStorage.getItem("ajg_connect_session");
+      if (savedUser) {
+        currentUser = JSON.parse(savedUser);
+        document.getElementById("authModal").classList.add("hidden");
+        document.getElementById("appContainer").classList.remove("hidden");
+        setupUserUI();
+      }
+      seedAdminUserIfMissing();
+      triggerDataUpdates();
+    };
+
+    window.toggleAuthMode = function() {
+      isRegisterMode = !isRegisterMode;
+      document.getElementById("authSubtitle").innerText = isRegisterMode ? "Create an account to get started" : "Log in to join your communities";
+      document.getElementById("authSubmitBtn").innerText = isRegisterMode ? "Register" : "Log In";
+      document.getElementById("authToggleText").innerText = isRegisterMode ? "Already have an account?" : "Need an account?";
+      document.getElementById("authToggleBtn").innerText = isRegisterMode ? "Log In" : "Register";
+      document.getElementById("authError").classList.add("hidden");
+    };
+
+    window.handleAuthSubmit = function(e) {
+      e.preventDefault();
+      const username = document.getElementById("authUsername").value.trim();
+      const password = document.getElementById("authPassword").value.trim();
+      const errorEl = document.getElementById("authError");
+      errorEl.classList.add("hidden");
+
+      if (!username || !password) return;
+
+      const lowerUser = username.toLowerCase();
+
+      if (useFirebase) {
+        get(ref(db, `users/${lowerUser}`)).then((snap) => {
+          if (isRegisterMode) {
+            if (snap.exists()) {
+              errorEl.innerText = "Username is already taken!";
+              errorEl.classList.remove("hidden");
+            } else {
+              const userData = { username, password, createdAt: Date.now() };
+              set(ref(db, `users/${lowerUser}`), userData).then(() => {
+                completeAuth(userData);
+              });
+            }
+          } else {
+            if (!snap.exists() || snap.val().password !== password) {
+              errorEl.innerText = "Invalid username or password!";
+              errorEl.classList.remove("hidden");
+            } else {
+              completeAuth(snap.val());
+            }
+          }
+        });
+      } else {
+        const local = getLocalDb();
+        if (isRegisterMode) {
+          if (local.users && local.users[lowerUser]) {
+            errorEl.innerText = "Username is already taken!";
+            errorEl.classList.remove("hidden");
+          } else {
+            const userData = { username, password, createdAt: Date.now() };
+            local.users[lowerUser] = userData;
+            saveLocalDb(local);
+            completeAuth(userData);
+          }
+        } else {
+          if (!local.users || !local.users[lowerUser] || local.users[lowerUser].password !== password) {
+            errorEl.innerText = "Invalid username or password!";
+            errorEl.classList.remove("hidden");
+          } else {
+            completeAuth(local.users[lowerUser]);
+          }
+        }
+      }
+    };
+
+    function completeAuth(user) {
+      currentUser = user;
+      localStorage.setItem("ajg_connect_session", JSON.stringify(user));
+      document.getElementById("authModal").classList.add("hidden");
+      document.getElementById("appContainer").classList.remove("hidden");
+      setupUserUI();
+      triggerDataUpdates();
+    }
+
+    window.logout = function() {
+      currentUser = null;
+      localStorage.removeItem("ajg_connect_session");
+      document.getElementById("appContainer").classList.add("hidden");
+      document.getElementById("authModal").classList.remove("hidden");
+    };
+
+    function setupUserUI() {
+      if (!currentUser) return;
+      document.getElementById("currentUsername").innerText = currentUser.username;
+      document.getElementById("userAvatar").innerText = currentUser.username.charAt(0).toUpperCase();
+
+      // Enable Admin Button if user is Ajgplayz
+      if (currentUser.username.toLowerCase() === "ajgplayz") {
+        document.getElementById("adminPanelBtn").classList.remove("hidden");
+      } else {
+        document.getElementById("adminPanelBtn").classList.add("hidden");
+      }
+    }
+
+    function triggerDataUpdates() {
+      renderServersList();
+      renderUsersList();
+      if (currentTab === 'server' && currentServerId) {
+        renderChannelsList(currentServerId);
+      }
+      renderMessages();
+    }
+
+    function renderServersList() {
+      const serversContainer = document.getElementById("serversList");
+      const render = (servers) => {
+        serversContainer.innerHTML = '';
+        Object.values(servers || {}).forEach((srv) => {
+          const btn = document.createElement("button");
+          btn.className = `group relative w-12 h-12 rounded-3xl hover:rounded-2xl transition-all flex items-center justify-center font-bold text-white shadow ${currentServerId === srv.id ? 'bg-indigo-600 rounded-2xl' : 'bg-gray-800 hover:bg-indigo-500'}`;
+          btn.innerText = srv.name.charAt(0).toUpperCase();
+          btn.onclick = () => selectServer(srv.id);
+
+          const tooltip = document.createElement("span");
+          tooltip.className = "absolute left-16 bg-gray-900 text-xs px-2 py-1 rounded-md shadow-lg whitespace-nowrap hidden group-hover:block z-30";
+          tooltip.innerText = srv.name;
+          btn.appendChild(tooltip);
+
+          serversContainer.appendChild(btn);
+        });
+      };
+
+      if (useFirebase) {
+        get(ref(db, 'servers')).then((snap) => render(snap.exists() ? snap.val() : {}));
+      } else {
+        const data = getLocalDb();
+        render(data.servers || {});
+      }
+    }
+
+    window.handleUserSearch = function(query) {
+      renderUsersList(query);
+    };
+
+    function renderUsersList(searchQuery = '') {
+      if (!currentUser) return;
+      const usersContainer = document.getElementById("usersList");
+      const render = (users) => {
+        usersContainer.innerHTML = '';
+        Object.values(users || {}).forEach((u) => {
+          if (u.username.toLowerCase() === currentUser.username.toLowerCase()) return;
+          if (searchQuery && !u.username.toLowerCase().includes(searchQuery.toLowerCase())) return;
+
+          const item = document.createElement("div");
+          item.className = `flex items-center space-x-2 p-2 rounded-lg cursor-pointer transition ${currentDMUsername === u.username ? 'bg-gray-700 text-white' : 'hover:bg-gray-800/60 text-gray-300'}`;
+          item.onclick = () => selectDMUser(u.username);
+
+          item.innerHTML = `
+            <div class="w-7 h-7 rounded-full bg-indigo-500/30 text-indigo-300 flex items-center justify-center text-xs font-bold">${u.username.charAt(0).toUpperCase()}</div>
+            <span class="text-xs font-medium truncate">${u.username}</span>
+          `;
+          usersContainer.appendChild(item);
+        });
+      };
+
+      if (useFirebase) {
+        get(ref(db, 'users')).then((snap) => render(snap.exists() ? snap.val() : {}));
+      } else {
+        const data = getLocalDb();
+        render(data.users || {});
+      }
+    }
+
+    function renderChannelsList(serverId) {
+      if (!serverId) return;
+      const channelsContainer = document.getElementById("channelsList");
+      const render = (serverId, channels) => {
+        channelsContainer.innerHTML = '';
+        Object.values(channels || {}).forEach((chn) => {
+          const item = document.createElement("div");
+          item.className = `flex items-center justify-between p-2 rounded-lg cursor-pointer text-xs font-medium transition ${currentChannelId === chn.id ? 'bg-gray-700 text-white' : 'text-gray-400 hover:bg-gray-800/60 hover:text-gray-200'}`;
+          item.onclick = () => selectChannel(chn.id);
+
+          item.innerHTML = `
+            <div class="flex items-center space-x-2 truncate">
+              <i class="fa-solid fa-hashtag text-xs"></i>
+              <span class="truncate">${chn.name}</span>
+            </div>
+          `;
+          channelsContainer.appendChild(item);
+        });
+      };
+
+      if (useFirebase) {
+        get(ref(db, `servers/${serverId}/channels`)).then((snap) => {
+          render(serverId, snap.exists() ? snap.val() : {});
+        });
+      } else {
+        const data = getLocalDb();
+        const server = (data.servers || {})[serverId];
+        render(serverId, server ? (server.channels || {}) : {});
+      }
+    }
+
+    window.switchTab = function(tab) {
+      currentTab = tab;
+      if (tab === 'dms') {
+        document.getElementById("dmsSidebar").classList.remove("hidden");
+        document.getElementById("channelsSidebar").classList.add("hidden");
+        document.getElementById("sidebarHeader").innerText = "Direct Messages";
+        currentServerId = null;
+        currentChannelId = null;
+      } else {
+        document.getElementById("dmsSidebar").classList.add("hidden");
+        document.getElementById("channelsSidebar").classList.remove("hidden");
+        document.getElementById("sidebarHeader").innerText = "Server Channels";
+        currentDMUsername = null;
+      }
+      renderMessages();
+    };
+
+    function selectServer(serverId) {
+      currentServerId = serverId;
+      switchTab('server');
+      renderChannelsList(serverId);
+
+      // Select first channel by default
+      if (useFirebase) {
+        get(ref(db, `servers/${serverId}/channels`)).then((snap) => {
+          if (snap.exists()) {
+            const firstChanKey = Object.keys(snap.val())[0];
+            selectChannel(firstChanKey);
+          }
+        });
+      } else {
+        const data = getLocalDb();
+        const channels = (data.servers[serverId] || {}).channels || {};
+        const firstChanKey = Object.keys(channels)[0];
+        if (firstChanKey) selectChannel(firstChanKey);
+      }
+    }
+
+    function selectChannel(channelId) {
+      currentChannelId = channelId;
+      renderMessages();
+    }
+
+    function selectDMUser(username) {
+      currentDMUsername = username;
+      switchTab('dms');
+      renderMessages();
+    }
+
+    function getDMKey(u1, u2) {
+      return [u1.toLowerCase(), u2.toLowerCase()].sort().join("_");
+    }
+
+    function getMessagePath() {
+      if (!currentUser) return null;
+      if (currentTab === 'dms' && currentDMUsername) {
+        return `dms/${getDMKey(currentUser.username, currentDMUsername)}`;
+      } else if (currentTab === 'server' && currentServerId && currentChannelId) {
+        return `messages/${currentServerId}_${currentChannelId}`;
+      }
+      return null;
+    }
+
+    function renderMessages() {
+      const container = document.getElementById("messagesContainer");
+      const titleEl = document.getElementById("chatTitle");
+      const iconEl = document.getElementById("chatHeaderIcon");
+
+      const path = getMessagePath();
+      if (!path) {
+        container.innerHTML = `<div class="h-full flex items-center justify-center text-gray-500 text-sm">Select a user or server channel to chat</div>`;
+        titleEl.innerText = "AJG-Connect";
+        iconEl.className = "fa-solid fa-comment-dots text-gray-400";
+        return;
+      }
+
+      if (currentTab === 'dms') {
+        titleEl.innerText = `@${currentDMUsername}`;
+        iconEl.className = "fa-solid fa-at text-indigo-400";
+      } else {
+        titleEl.innerText = `Channel Chat`;
+        iconEl.className = "fa-solid fa-hashtag text-gray-400";
+      }
+
+      const renderList = (msgs) => {
+        container.innerHTML = '';
+        if (!msgs || Object.keys(msgs).length === 0) {
+          container.innerHTML = `<div class="text-center text-gray-500 text-xs py-8">No messages yet. Say hello!</div>`;
+          return;
+        }
+
+        Object.values(msgs).forEach((msg) => {
+          const item = document.createElement("div");
+          item.className = "flex space-x-3 text-sm";
+          item.innerHTML = `
+            <div class="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center font-bold text-xs text-white shrink-0">
+              ${msg.sender.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <div class="flex items-center space-x-2">
+                <span class="font-bold text-white text-xs">${msg.sender}</span>
+                <span class="text-[10px] text-gray-500">${new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+              <p class="text-gray-300 text-xs mt-0.5">${msg.text}</p>
+            </div>
+          `;
+          container.appendChild(item);
+        });
+        container.scrollTop = container.scrollHeight;
+      };
+
+      if (useFirebase) {
+        get(ref(db, path)).then((snap) => renderList(snap.exists() ? snap.val() : {}));
+      } else {
+        const local = getLocalDb();
+        const parts = path.split('/');
+        const data = (local[parts[0]] || {})[parts[1]] || {};
+        renderList(data);
+      }
+    }
+
+    window.handleSendMessage = function(e) {
+      e.preventDefault();
+      const input = document.getElementById("messageInput");
+      const text = input.value.trim();
+      if (!text) return;
+
+      const path = getMessagePath();
+      if (!path) return;
+
+      const msgData = {
+        id: "msg_" + Date.now(),
+        sender: currentUser.username,
+        text: text,
+        timestamp: Date.now()
+      };
+
+      if (useFirebase) {
+        set(ref(db, `${path}/${msgData.id}`), msgData).then(() => {
+          input.value = '';
+          renderMessages();
+        });
+      } else {
+        const local = getLocalDb();
+        const parts = path.split('/');
+        local[parts[0]] = local[parts[0]] || {};
+        local[parts[0]][parts[1]] = local[parts[0]][parts[1]] || {};
+        local[parts[0]][parts[1]][msgData.id] = msgData;
+        saveLocalDb(local);
+        input.value = '';
+        renderMessages();
+      }
+    };
+
+    window.openCreateServerModal = () => document.getElementById("createServerModal").classList.remove("hidden");
+    window.openCreateChannelModal = () => document.getElementById("createChannelModal").classList.remove("hidden");
+    window.closeModal = (id) => document.getElementById(id).classList.add("hidden");
+
+    window.submitCreateServer = function() {
+      const name = document.getElementById("newServerName").value.trim();
+      if (!name) return;
+
+      const serverId = "srv_" + Date.now();
+      const chanId = "chn_general";
+      const serverData = {
+        id: serverId,
+        name: name,
+        owner: currentUser.username,
+        channels: {
+          [chanId]: { id: chanId, name: "general" }
+        }
+      };
+
+      if (useFirebase) {
+        set(ref(db, `servers/${serverId}`), serverData).then(() => {
+          closeModal("createServerModal");
+          triggerDataUpdates();
+          selectServer(serverId);
+        });
+      } else {
+        const local = getLocalDb();
+        local.servers[serverId] = serverData;
+        saveLocalDb(local);
+        closeModal("createServerModal");
+        triggerDataUpdates();
+        selectServer(serverId);
+      }
+    };
+
+    window.submitCreateChannel = function() {
+      if (!currentServerId) return;
+      const name = document.getElementById("newChannelName").value.trim().toLowerCase().replace(/\s+/g, '-');
+      if (!name) return;
+
+      const chanId = "chn_" + Date.now();
+      const channelData = { id: chanId, name: name };
+
+      if (useFirebase) {
+        set(ref(db, `servers/${currentServerId}/channels/${chanId}`), channelData).then(() => {
+          closeModal("createChannelModal");
+          renderChannelsList(currentServerId);
+        });
+      } else {
+        const local = getLocalDb();
+        local.servers[currentServerId].channels[chanId] = channelData;
+        saveLocalDb(local);
+        closeModal("createChannelModal");
+        renderChannelsList(currentServerId);
+      }
+    };
+
+    window.openAdminModal = function() {
+      if (!currentUser || currentUser.username.toLowerCase() !== 'ajgplayz') return;
+      document.getElementById("adminModal").classList.remove("hidden");
+      renderAdminContent();
+    };
+
+    window.switchAdminTab = function(tab) {
+      activeAdminTab = tab;
+      ['Users', 'Servers', 'Dms'].forEach(t => {
+        const btn = document.getElementById(`adminTab${t}`);
+        if (t.toLowerCase() === tab) {
+          btn.className = "px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30";
+        } else {
+          btn.className = "px-3 py-1.5 text-xs font-semibold rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600";
+        }
+      });
+      renderAdminContent();
+    };
+
+    function renderAdminContent() {
+      const container = document.getElementById("adminContent");
+      container.innerHTML = '';
+
+      if (activeAdminTab === 'users') {
+        const render = (users) => {
+          let html = `<div class="space-y-2">`;
+          Object.values(users || {}).forEach(u => {
+            html += `
+              <div class="flex items-center justify-between bg-gray-900/60 p-3 rounded-lg border border-gray-700/50">
+                <div>
+                  <span class="font-bold text-xs text-white">${u.username}</span>
+                  <span class="text-[10px] text-gray-400 block">Password: ${u.password}</span>
+                </div>
+                ${u.username.toLowerCase() !== 'ajgplayz' ? `
+                  <button onclick="adminDeleteUser('${u.username}')" class="text-xs bg-red-600/20 text-red-400 hover:bg-red-600 hover:text-white px-2.5 py-1 rounded transition">Delete</button>
+                ` : '<span class="text-[10px] text-amber-400 font-bold uppercase">Root Admin</span>'}
+              </div>
+            `;
+          });
+          html += `</div>`;
+          container.innerHTML = html;
+        };
+
+        if (useFirebase) {
+          get(ref(db, 'users')).then(snap => render(snap.exists() ? snap.val() : {}));
+        } else {
+          render(getLocalDb().users || {});
+        }
+      } else if (activeAdminTab === 'servers') {
+        const render = (servers) => {
+          let html = `<div class="space-y-2">`;
+          Object.values(servers || {}).forEach(s => {
+            html += `
+              <div class="flex items-center justify-between bg-gray-900/60 p-3 rounded-lg border border-gray-700/50">
+                <div>
+                  <span class="font-bold text-xs text-white">${s.name}</span>
+                  <span class="text-[10px] text-gray-400 block">Owner: ${s.owner}</span>
+                </div>
+                <button onclick="adminDeleteServer('${s.id}')" class="text-xs bg-red-600/20 text-red-400 hover:bg-red-600 hover:text-white px-2.5 py-1 rounded transition">Delete</button>
+              </div>
+            `;
+          });
+          html += `</div>`;
+          container.innerHTML = html;
+        };
+
+        if (useFirebase) {
+          get(ref(db, 'servers')).then(snap => render(snap.exists() ? snap.val() : {}));
+        } else {
+          render(getLocalDb().servers || {});
+        }
+      } else if (activeAdminTab === 'dms') {
+        const render = (dms) => {
+          let html = `<div class="space-y-3">`;
+          if (!dms || Object.keys(dms).length === 0) {
+            html += `<div class="text-center text-xs text-gray-500 py-4">No active DM threads found in database.</div>`;
+          } else {
+            Object.entries(dms).forEach(([threadKey, msgs]) => {
+              const participants = threadKey.split('_').join(' & ');
+              html += `
+                <div class="bg-gray-900/60 p-3 rounded-lg border border-gray-700/50 space-y-2">
+                  <div class="flex items-center justify-between border-b border-gray-800 pb-2">
+                    <span class="font-bold text-xs text-indigo-400"><i class="fa-solid fa-comments"></i> ${participants}</span>
+                    <button onclick="adminDeleteDMThread('${threadKey}')" class="text-[10px] bg-red-600/20 text-red-400 hover:bg-red-600 hover:text-white px-2 py-0.5 rounded">Purge Thread</button>
+                  </div>
+                  <div class="space-y-1 max-h-32 overflow-y-auto pr-1">
+              `;
+              Object.values(msgs || {}).forEach(m => {
+                html += `
+                  <div class="text-[11px] text-gray-300 flex justify-between items-center">
+                    <span><strong class="text-white">${m.sender}:</strong> ${m.text}</span>
+                    <button onclick="adminDeleteDMMessage('${threadKey}', '${m.id}')" class="text-red-400 hover:text-red-300 text-[10px] ml-2"><i class="fa-solid fa-trash"></i></button>
+                  </div>
+                `;
+              });
+              html += `</div></div>`;
+            });
+          }
+          html += `</div>`;
+          container.innerHTML = html;
+        };
+
+        if (useFirebase) {
+          get(ref(db, 'dms')).then(snap => render(snap.exists() ? snap.val() : {}));
+        } else {
+          render(getLocalDb().dms || {});
+        }
+      }
+    }
+
+    window.adminDeleteUser = function(username) {
+      const lower = username.toLowerCase();
+      if (useFirebase) {
+        remove(ref(db, `users/${lower}`)).then(() => {
+          renderAdminContent();
+          triggerDataUpdates();
+        });
+      } else {
+        const local = getLocalDb();
+        delete local.users[lower];
+        saveLocalDb(local);
+        renderAdminContent();
+        triggerDataUpdates();
+      }
+    };
+
+    window.adminDeleteServer = function(serverId) {
+      if (useFirebase) {
+        remove(ref(db, `servers/${serverId}`)).then(() => {
+          renderAdminContent();
+          triggerDataUpdates();
+        });
+      } else {
+        const local = getLocalDb();
+        delete local.servers[serverId];
+        saveLocalDb(local);
+        renderAdminContent();
+        triggerDataUpdates();
+      }
+    };
+
+    window.adminDeleteDMThread = function(threadKey) {
+      if (useFirebase) {
+        remove(ref(db, `dms/${threadKey}`)).then(() => {
+          renderAdminContent();
+          renderMessages();
+        });
+      } else {
+        const local = getLocalDb();
+        delete local.dms[threadKey];
+        saveLocalDb(local);
+        renderAdminContent();
+        renderMessages();
+      }
+    };
+
+    window.adminDeleteDMMessage = function(threadKey, msgId) {
+      if (useFirebase) {
+        remove(ref(db, `dms/${threadKey}/${msgId}`)).then(() => {
+          renderAdminContent();
+          renderMessages();
+        });
+      } else {
+        const local = getLocalDb();
+        if (local.dms[threadKey]) {
+          delete local.dms[threadKey][msgId];
+          saveLocalDb(local);
+          renderAdminContent();
+          renderMessages();
+        }
+      }
+    };
+  </script>
+</body>
+</html>
