@@ -54,6 +54,21 @@
       justify-content: center;
     }
 
+    /* URL Quick Join Overlay Specific Style */
+    .url-join-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
     .start-card {
       background-color: var(--bg-sidebar);
       padding: 32px;
@@ -619,7 +634,7 @@
 </head>
 <body>
 
-  <!-- Start / Connect Overlay -->
+  <!-- Start / Connect Modal -->
   <div class="start-overlay" id="start-overlay">
     <div class="start-card">
       <h1>💬 ajg-connect</h1>
@@ -640,6 +655,23 @@
       </div>
 
       <button type="button" class="start-btn" id="action-btn">▶ Host Server</button>
+    </div>
+  </div>
+
+  <!-- URL Quick Join Popup Modal -->
+  <div class="url-join-overlay" id="url-join-overlay">
+    <div class="start-card">
+      <h1>🔗 Join ajg-connect</h1>
+      <p id="url-join-desc">You've been invited to join a chat room!</p>
+
+      <div class="form-group">
+        <div class="input-group">
+          <input type="text" id="url-username-input" class="start-input" placeholder="Your username..." maxlength="18" />
+          <button type="button" class="btn-secondary" id="url-random-btn">🎲</button>
+        </div>
+      </div>
+
+      <button type="button" class="start-btn" id="url-join-btn">▶ Join Chat</button>
     </div>
   </div>
 
@@ -792,6 +824,13 @@
     const randomBtn = document.getElementById('random-btn');
     const actionBtn = document.getElementById('action-btn');
 
+    // URL Join Overlay elements
+    const urlJoinOverlay = document.getElementById('url-join-overlay');
+    const urlUsernameInput = document.getElementById('url-username-input');
+    const urlRandomBtn = document.getElementById('url-random-btn');
+    const urlJoinBtn = document.getElementById('url-join-btn');
+    const urlJoinDesc = document.getElementById('url-join-desc');
+
     const btnModeServer = document.getElementById('btn-mode-server');
     const btnModePrivate = document.getElementById('btn-mode-private');
     const btnModeJoin = document.getElementById('btn-mode-join');
@@ -869,14 +908,12 @@
       return `${prefixes[Math.floor(Math.random() * prefixes.length)]}${nouns[Math.floor(Math.random() * nouns.length)]}_${Math.floor(100 + Math.random() * 900)}`;
     }
 
-    function stringToColor(str) {
-      let hash = 0;
-      for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-      return `hsl(${Math.abs(hash) % 360}, 65%, 50%)`;
-    }
+    const defaultRandName = generateRandomName();
+    usernameInput.value = defaultRandName;
+    urlUsernameInput.value = defaultRandName;
 
-    usernameInput.value = generateRandomName();
     randomBtn.addEventListener('click', () => usernameInput.value = generateRandomName());
+    urlRandomBtn.addEventListener('click', () => urlUsernameInput.value = generateRandomName());
 
     btnModeServer.addEventListener('click', () => setMode('server'));
     btnModePrivate.addEventListener('click', () => setMode('private'));
@@ -939,16 +976,48 @@
       const serverParam = params.get('server');
 
       if (codeParam) {
-        targetInput.value = codeParam;
-        setMode('private');
-        // Auto trigger join attempt for private code
-        setTimeout(() => attemptJoinOrPrompt(`ajg-${codeParam}`, `Private ${codeParam}`, 'code', codeParam), 300);
+        startOverlay.style.display = 'none';
+        urlJoinDesc.textContent = `You've been invited to private room code: ${codeParam}`;
+        urlJoinOverlay.style.display = 'flex';
+
+        urlJoinBtn.onclick = () => {
+          const name = urlUsernameInput.value.trim() || generateRandomName();
+          finalizeUserAndJoin(name, `ajg-${codeParam}`, `Private ${codeParam}`, 'code', codeParam);
+        };
       } else if (serverParam) {
-        targetInput.value = serverParam;
-        setMode('server');
-        setTimeout(() => attemptJoinOrPrompt(`ajg-${serverParam}`, serverParam, 'server', serverParam), 300);
+        startOverlay.style.display = 'none';
+        urlJoinDesc.textContent = `You've been invited to server: '${serverParam}'`;
+        urlJoinOverlay.style.display = 'flex';
+
+        urlJoinBtn.onclick = () => {
+          const name = urlUsernameInput.value.trim() || generateRandomName();
+          finalizeUserAndJoin(name, `ajg-${serverParam}`, serverParam, 'server', serverParam);
+        };
       }
     });
+
+    function finalizeUserAndJoin(name, fullCode, displayTitle, paramKey, paramVal) {
+      currentUser = {
+        id: 'usr_' + Math.random().toString(36).substring(2, 9),
+        name: name,
+        color: stringToColor(name)
+      };
+
+      myUsernameEl.textContent = currentUser.name;
+      myProfileAvatar.textContent = currentUser.name.charAt(0).toUpperCase();
+      myProfileAvatar.style.backgroundColor = currentUser.color;
+
+      urlJoinOverlay.style.display = 'none';
+      connStatusEl.textContent = 'Connecting...';
+
+      if (paramKey === 'code') {
+        updateUrlParams('code', paramVal);
+      } else {
+        updateUrlParams('server', paramVal);
+      }
+
+      attemptJoinOrPrompt(fullCode, displayTitle, paramKey, paramVal);
+    }
 
     actionBtn.addEventListener('click', () => {
       const name = usernameInput.value.trim() || generateRandomName();
