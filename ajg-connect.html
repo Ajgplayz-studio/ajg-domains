@@ -824,7 +824,7 @@
     const randomBtn = document.getElementById('random-btn');
     const actionBtn = document.getElementById('action-btn');
 
-    // URL Join Overlay elements
+    // URL Quick Join Overlay elements
     const urlJoinOverlay = document.getElementById('url-join-overlay');
     const urlUsernameInput = document.getElementById('url-username-input');
     const urlRandomBtn = document.getElementById('url-random-btn');
@@ -908,6 +908,12 @@
       return `${prefixes[Math.floor(Math.random() * prefixes.length)]}${nouns[Math.floor(Math.random() * nouns.length)]}_${Math.floor(100 + Math.random() * 900)}`;
     }
 
+    function stringToColor(str) {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+      return `hsl(${Math.abs(hash) % 360}, 65%, 50%)`;
+    }
+
     const defaultRandName = generateRandomName();
     usernameInput.value = defaultRandName;
     urlUsernameInput.value = defaultRandName;
@@ -964,7 +970,6 @@
         }
         window.history.replaceState({}, '', url);
       } catch (e) {
-        // Safe fallback for restricted blob/sandboxed URL environments
         console.warn('URL params history update restricted in current context:', e);
       }
     }
@@ -977,7 +982,7 @@
 
       if (codeParam) {
         startOverlay.style.display = 'none';
-        urlJoinDesc.textContent = `You've been invited to private room code: ${codeParam}`;
+        urlJoinDesc.textContent = `You've been invited to join private room code: ${codeParam}`;
         urlJoinOverlay.style.display = 'flex';
 
         urlJoinBtn.onclick = () => {
@@ -986,7 +991,7 @@
         };
       } else if (serverParam) {
         startOverlay.style.display = 'none';
-        urlJoinDesc.textContent = `You've been invited to server: '${serverParam}'`;
+        urlJoinDesc.textContent = `You've been invited to join server: '${serverParam}'`;
         urlJoinOverlay.style.display = 'flex';
 
         urlJoinBtn.onclick = () => {
