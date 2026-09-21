@@ -464,6 +464,70 @@
       font-weight: 500;
     }
 
+    /* Voice Channel Section */
+    .voice-channel-section {
+      background-color: var(--bg-servers);
+      padding: 8px 12px;
+      border-top: 1px solid rgba(0,0,0,0.2);
+      border-bottom: 1px solid rgba(0,0,0,0.2);
+    }
+    .voice-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      font-weight: bold;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .voice-btn-join {
+      background: var(--green);
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .voice-btn-join.connected {
+      background: var(--red);
+    }
+    .voice-participants {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+    .voice-user-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 6px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 4px;
+      font-size: 12px;
+      color: var(--text-heading);
+    }
+    .voice-user-pill .avatar {
+      width: 20px;
+      height: 20px;
+      font-size: 10px;
+    }
+    .speaking-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      margin-left: auto;
+    }
+    .speaking-indicator.speaking {
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+    }
+
     .connection-status {
       font-size: 11px;
       padding: 4px 8px;
@@ -619,6 +683,16 @@
       <div class="channel-item"># global-chat</div>
     </div>
     
+    <div class="voice-channel-section">
+      <div class="voice-header">
+        <span>🔊 Voice Channel</span>
+        <button class="voice-btn-join" id="voice-toggle-btn">Connect</button>
+      </div>
+      <div class="voice-participants" id="voice-participants-container">
+        <!-- Voice participants appear here -->
+      </div>
+    </div>
+
     <div class="user-profile-bar">
       <div class="avatar" id="my-profile-avatar">?</div>
       <div class="user-info">
@@ -627,45 +701,79 @@
       </div>
       <button class="leave-btn" id="leave-btn" title="Leave Server" style="display: none;">🚪</button>
     </div>
+    <div class="user-list">
+      <div class="channel-category" id="online-count">Online Users — 0</div>
+      <div id="users-container"></div>
+    </div>
   </div>
 
+  <!-- Chat Window Container -->
   <div class="chat-container">
     <div class="chat-header">
       <span># global-chat</span>
-      <span class="connection-status" id="conn-status">Disconnected</span>
+      <div class="connection-status" id="conn-status">Disconnected</div>
     </div>
-
+    
     <div class="messages-area" id="messages-area">
       <div class="message">
         <div class="avatar" style="background-color: #5865f2;">AJ</div>
-        <div class="message-content">
+        <div class="message-content" style="flex:1; overflow:hidden;">
           <div class="message-header">
             <span class="author">System</span>
             <span class="timestamp">Live</span>
           </div>
-          <div class="text">Welcome to ajg-connect with Video Support! Share images, universal audio, recorded voice clips, or videos (mp4, webm, etc.), click safe HTTPS links, or type <b>/clear</b>.</div>
+          <div class="text">Welcome to ajg-connect with Video Support! Share images, universal audio, voice clips, or videos.</div>
         </div>
       </div>
     </div>
 
     <div class="input-area">
-      <form id="chat-form" class="input-wrapper">
-        <input type="file" id="media-file-input" accept="image/*,audio/*,video/*" style="display: none;" />
+      <form class="input-wrapper" id="chat-form">
+        <input type="file" id="media-file-input" style="display: none;" accept="image/*,audio/*,video/*" />
+        <input type="text" id="message-input" placeholder="Connect to a server to chat..." disabled autocomplete="off" />
         <div class="input-actions">
-          <button type="button" class="icon-btn" id="attach-btn" title="Upload Image, Audio, or Video File" disabled>📎</button>
+          <button type="button" class="icon-btn" id="attach-btn" title="Upload Image / Audio / Video (up to 1GB)" disabled>📎</button>
           <button type="button" class="icon-btn" id="record-btn" title="Record Voice Message" disabled>🎙️</button>
         </div>
-        <input type="text" id="message-input" placeholder="Connect to chat..." autocomplete="off" disabled />
       </form>
     </div>
   </div>
 
-  <div class="user-list">
-    <div class="channel-category" id="online-count">Online Users — 0</div>
-    <div id="users-container"></div>
-  </div>
-
   <script>
+    function addUser(user) {
+      if (onlineUsers.has(user.id)) return;
+      onlineUsers.set(user.id, user);
+      renderUsersList();
+    }
+
+    function removeUser(userId) {
+      if (!onlineUsers.has(userId)) return;
+      onlineUsers.delete(userId);
+      renderUsersList();
+    }
+
+    function renderUsersList() {
+      usersContainer.innerHTML = '';
+      onlineCountEl.textContent = `Online Users — ${onlineUsers.size}`;
+      onlineUsers.forEach((user) => {
+        const userDiv = document.createElement('div');
+        userDiv.className = 'user-item';
+        userDiv.innerHTML = `
+          <div class="avatar" style="width: 28px; height: 28px; font-size: 12px; background-color: ${user.color};">${user.name.charAt(0).toUpperCase()}</div>
+          <span class="name" style="color: var(--text-normal);">${user.name}</span>
+        `;
+        usersContainer.appendChild(userDiv);
+      });
+    }
+
+    function broadcastData(data, excludeConn = null) {
+      connections.forEach(c => {
+        if (c !== excludeConn) {
+          c.send(data);
+        }
+      });
+    }
+
     const startOverlay = document.getElementById('start-overlay');
     const usernameInput = document.getElementById('username-input');
     const targetInput = document.getElementById('target-input');
@@ -694,6 +802,18 @@
     const serverTitle = document.getElementById('server-title');
     const lightbox = document.getElementById('lightbox');
     const lightboxImg = document.getElementById('lightbox-img');
+
+    // Voice Calling Elements
+    const voiceToggleBtn = document.getElementById('voice-toggle-btn');
+    const voiceParticipantsContainer = document.getElementById('voice-participants-container');
+    let inVoiceChannel = false;
+    let localAudioStream = null;
+    let activePeerCalls = new Map(); // peerId -> mediaConnection
+    let activeAudioElements = new Map(); // peerId -> audio element
+    let audioContext = null;
+    let analyser = null;
+    let micDataArray = null;
+    let speakingCheckInterval = null;
 
     // Confirm Modal elements (Links)
     const confirmModal = document.getElementById('confirm-modal');
@@ -933,48 +1053,177 @@
           broadcastData(data, sourceConn);
         }
       } 
+      else if (data.type === 'voice-state') {
+        if (data.inVoice) {
+          voiceParticipants.set(data.userId, { name: data.name, color: data.color });
+        } else {
+          voiceParticipants.delete(data.userId);
+        }
+        renderVoiceParticipants();
+        if (isHost) broadcastData(data, sourceConn);
+      }
       else if (data.type === 'leave') {
         removeUser(data.userId);
+        voiceParticipants.delete(data.userId);
+        renderVoiceParticipants();
         if (isHost) {
           broadcastData(data, sourceConn);
         }
       }
     }
 
-    function broadcastData(data, excludeConn = null) {
-      if (isSimulationMode) return;
-      connections.forEach(conn => {
-        if (conn !== excludeConn && conn.open) {
-          conn.send(data);
+    let voiceParticipants = new Map();
+
+    voiceToggleBtn.addEventListener('click', async () => {
+      if (!inVoiceChannel) {
+        try {
+          localAudioStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+          inVoiceChannel = true;
+          voiceToggleBtn.textContent = 'Disconnect';
+          voiceToggleBtn.classList.add('connected');
+
+          voiceParticipants.set(currentUser.id, { name: currentUser.name, color: currentUser.color });
+          renderVoiceParticipants();
+          broadcastData({ type: 'voice-state', userId: currentUser.id, name: currentUser.name, color: currentUser.color, inVoice: true });
+
+          setupAudioAnalyser(localAudioStream);
+
+          // Handle incoming voice calls if PeerJS is active
+          if (peer && !isSimulationMode) {
+            peer.on('call', (call) => {
+              call.answer(localAudioStream);
+              handleIncomingCall(call);
+            });
+
+            // Call existing peers in the room
+            connections.forEach(conn => {
+              const remotePeerId = conn.peer;
+              if (remotePeerId && !activePeerCalls.has(remotePeerId)) {
+                const call = peer.call(remotePeerId, localAudioStream);
+                handleIncomingCall(call);
+              }
+            });
+          } else if (isSimulationMode) {
+            // Simulate bot joining voice in simulation mode
+            setTimeout(() => {
+              const botUser = onlineUsers.get('bot_alex');
+              if (botUser) {
+                voiceParticipants.set(botUser.id, { name: botUser.name, color: botUser.color });
+                renderVoiceParticipants();
+                appendSystemVoiceNotice('Alex_Bot joined the voice channel.');
+              }
+            }, 1000);
+          }
+
+        } catch (err) {
+          appendMessage('System', 'Microphone access for voice calling was denied or unavailable.', 'var(--red)');
         }
+      } else {
+        leaveVoiceChannel();
+      }
+    });
+
+    function leaveVoiceChannel() {
+      if (localAudioStream) {
+        localAudioStream.getTracks().forEach(t => t.stop());
+        localAudioStream = null;
+      }
+      inVoiceChannel = false;
+      voiceToggleBtn.textContent = 'Connect';
+      voiceToggleBtn.classList.remove('connected');
+
+      voiceParticipants.delete(currentUser.id);
+      renderVoiceParticipants();
+      broadcastData({ type: 'voice-state', userId: currentUser.id, inVoice: false });
+
+      activePeerCalls.forEach((call) => call.close());
+      activePeerCalls.clear();
+      activeAudioElements.forEach((audio) => audio.remove());
+      activeAudioElements.clear();
+
+      if (speakingCheckInterval) clearInterval(speakingCheckInterval);
+    }
+
+    function handleIncomingCall(call) {
+      activePeerCalls.set(call.peer, call);
+      call.on('stream', (remoteStream) => {
+        playRemoteAudio(call.peer, remoteStream);
+      });
+      call.on('close', () => {
+        removeRemoteAudio(call.peer);
       });
     }
 
-    function addUser(user) {
-      onlineUsers.set(user.id, user);
-      renderUserList();
+    function playRemoteAudio(peerId, stream) {
+      if (activeAudioElements.has(peerId)) return;
+      const audioEl = document.createElement('audio');
+      audioEl.srcObject = stream;
+      audioEl.autoplay = true;
+      document.body.appendChild(audioEl);
+      activeAudioElements.set(peerId, audioEl);
     }
 
-    function removeUser(userId) {
-      onlineUsers.delete(userId);
-      renderUserList();
+    function removeRemoteAudio(peerId) {
+      const audioEl = activeAudioElements.get(peerId);
+      if (audioEl) {
+        audioEl.remove();
+        activeAudioElements.delete(peerId);
+      }
+      activePeerCalls.delete(peerId);
     }
 
-    function renderUserList() {
-      usersContainer.innerHTML = '';
-      onlineCountEl.textContent = `Online Users — ${onlineUsers.size}`;
+    function setupAudioAnalyser(stream) {
+      try {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioContext.createMediaStreamSource(stream);
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+        micDataArray = new Uint8Array(analyser.frequencyBinCount);
 
-      onlineUsers.forEach(u => {
-        const userDiv = document.createElement('div');
-        userDiv.className = 'user-item';
-        userDiv.innerHTML = `
-          <div class="avatar" style="background-color: ${u.color};">
-            ${u.name.charAt(0).toUpperCase()}
-          </div>
-          <span class="name">${u.name}</span>
+        speakingCheckInterval = setInterval(() => {
+          if (!analyser || !inVoiceChannel) return;
+          analyser.getByteFrequencyData(micDataArray);
+          let sum = 0;
+          for (let i = 0; i < micDataArray.length; i++) sum += micDataArray[i];
+          let average = sum / micDataArray.length;
+
+          const myIndicator = document.getElementById(`speaking-${currentUser.id}`);
+          if (myIndicator) {
+            if (average > 12) {
+              myIndicator.classList.add('speaking');
+            } else {
+              myIndicator.classList.remove('speaking');
+            }
+          }
+        }, 150);
+      } catch (e) {
+        console.warn('Audio analyzer error:', e);
+      }
+    }
+
+    function renderVoiceParticipants() {
+      voiceParticipantsContainer.innerHTML = '';
+      voiceParticipants.forEach((user, id) => {
+        const pill = document.createElement('div');
+        pill.className = 'voice-user-pill';
+        pill.innerHTML = `
+          <div class="avatar" style="background-color: ${user.color};">${user.name.charAt(0).toUpperCase()}</div>
+          <span>${user.name}</span>
+          <div class="speaking-indicator" id="speaking-${id}"></div>
         `;
-        usersContainer.appendChild(userDiv);
+        voiceParticipantsContainer.appendChild(pill);
       });
+    }
+
+    function appendSystemVoiceNotice(text) {
+      const notice = document.createElement('div');
+      notice.style.fontSize = '11px';
+      notice.style.color = 'var(--text-muted)';
+      notice.style.padding = '2px 8px';
+      notice.style.fontStyle = 'italic';
+      notice.textContent = text;
+      voiceParticipantsContainer.appendChild(notice);
     }
 
     // Safe Leave Handling
@@ -988,6 +1237,7 @@
 
     leaveOk.addEventListener('click', () => {
       leaveConfirmModal.style.display = 'none';
+      if (inVoiceChannel) leaveVoiceChannel();
       performSafeLeave();
     });
 
@@ -1008,7 +1258,7 @@
       messagesArea.innerHTML = `
         <div class="message">
           <div class="avatar" style="background-color: #5865f2;">AJ</div>
-          <div class="message-content">
+          <div class="message-content" style="flex:1; overflow:hidden;">
             <div class="message-header">
               <span class="author">System</span>
               <span class="timestamp">Live</span>
