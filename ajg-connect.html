@@ -554,7 +554,7 @@
       border-radius: 4px;
     }
 
-    /* Custom Confirm Modal for Safe Links & Safe Leave */
+    /* Custom Confirm Modal for Safe Links & Safe Leave & Host Prompts */
     .confirm-modal {
       position: fixed;
       top: 0; left: 0; width: 100%; height: 100%;
@@ -672,6 +672,18 @@
     </div>
   </div>
 
+  <!-- Non-Existent Target Host Prompt Modal -->
+  <div class="confirm-modal" id="host-prompt-modal">
+    <div class="confirm-card">
+      <h3>🔍 Room / Server Not Found</h3>
+      <p id="host-prompt-text">The requested room does not exist yet. Would you like to host it?</p>
+      <div class="confirm-actions">
+        <button type="button" class="confirm-btn-cancel" id="host-prompt-cancel">Cancel</button>
+        <button type="button" class="confirm-btn-ok" id="host-prompt-ok">Yes, Host It</button>
+      </div>
+    </div>
+  </div>
+
   <div class="server-rail">
     <div class="server-icon" id="server-badge">AJ</div>
   </div>
@@ -722,7 +734,7 @@
             <span class="author">System</span>
             <span class="timestamp">Live</span>
           </div>
-          <div class="text">Welcome to ajg-connect with Video Support! Share images, universal audio, voice clips, or videos.</div>
+          <div class="text">Welcome to ajg-connect! URL parameters like ?code=5312 or ?server=recside are fully supported.</div>
         </div>
       </div>
     </div>
@@ -808,8 +820,8 @@
     const voiceParticipantsContainer = document.getElementById('voice-participants-container');
     let inVoiceChannel = false;
     let localAudioStream = null;
-    let activePeerCalls = new Map(); // peerId -> mediaConnection
-    let activeAudioElements = new Map(); // peerId -> audio element
+    let activePeerCalls = new Map();
+    let activeAudioElements = new Map();
     let audioContext = null;
     let analyser = null;
     let micDataArray = null;
@@ -826,7 +838,15 @@
     const leaveCancel = document.getElementById('leave-cancel');
     const leaveOk = document.getElementById('leave-ok');
 
+    // Host Prompt Modal elements
+    const hostPromptModal = document.getElementById('host-prompt-modal');
+    const hostPromptText = document.getElementById('host-prompt-text');
+    const hostPromptCancel = document.getElementById('host-prompt-cancel');
+    const hostPromptOk = document.getElementById('host-prompt-ok');
+
     let pendingTargetUrl = null;
+    let pendingHostCode = null;
+    let pendingHostDisplay = null;
 
     let currentMode = 'server';
     let peer = null;
@@ -897,6 +917,39 @@
       }
     }
 
+    function updateUrlParams(key, value) {
+      try {
+        const url = new URL(window.location);
+        if (value) {
+          url.searchParams.set(key, value);
+        } else {
+          url.searchParams.delete(key);
+        }
+        window.history.replaceState({}, '', url);
+      } catch (e) {
+        // Safe fallback for restricted blob/sandboxed URL environments
+        console.warn('URL params history update restricted in current context:', e);
+      }
+    }
+
+    // Check URL parameters on load
+    window.addEventListener('DOMContentLoaded', () => {
+      const params = new URLSearchParams(window.location.search);
+      const codeParam = params.get('code');
+      const serverParam = params.get('server');
+
+      if (codeParam) {
+        targetInput.value = codeParam;
+        setMode('private');
+        // Auto trigger join attempt for private code
+        setTimeout(() => attemptJoinOrPrompt(`ajg-${codeParam}`, `Private ${codeParam}`, 'code', codeParam), 300);
+      } else if (serverParam) {
+        targetInput.value = serverParam;
+        setMode('server');
+        setTimeout(() => attemptJoinOrPrompt(`ajg-${serverParam}`, serverParam, 'server', serverParam), 300);
+      }
+    });
+
     actionBtn.addEventListener('click', () => {
       const name = usernameInput.value.trim() || generateRandomName();
       let rawTarget = targetInput.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
@@ -920,12 +973,14 @@
         isHost = true;
         rawTarget = rawTarget || 'lobby';
         fullCode = `ajg-${rawTarget}`;
+        updateUrlParams('server', rawTarget);
         initHost(fullCode, rawTarget);
       } 
       else if (currentMode === 'private') {
         isHost = true;
         const randomCode = Math.floor(1000 + Math.random() * 9000);
         fullCode = `ajg-${randomCode}`;
+        updateUrlParams('code', randomCode);
         initHost(fullCode, `Private ${randomCode}`);
       } 
       else if (currentMode === 'join') {
@@ -936,26 +991,90 @@
           fullCode = rawTarget;
         }
 
-        serverBadge.textContent = 'AJ';
-        serverTitle.textContent = 'ajg-connect';
-
-        try {
-          peer = createPeerInstance();
-          peer.on('open', () => {
-            const conn = peer.connect(fullCode);
-            bindConnection(conn);
-            myRoomCodeEl.textContent = `Code: ${fullCode}`;
-          });
-
-          peer.on('error', (err) => {
-            console.warn('PeerJS restricted in Canvas. Activating local simulation fallback...', err);
-            activateSimulationMode(fullCode);
-          });
-        } catch (e) {
-          console.warn('PeerJS blocked in Canvas. Activating local simulation fallback...', e);
-          activateSimulationMode(fullCode);
+        const cleanKeyVal = fullCode.replace('ajg-', '');
+        if (cleanKeyVal.match(/^\d+$/)) {
+          updateUrlParams('code', cleanKeyVal);
+        } else {
+          updateUrlParams('server', cleanKeyVal);
         }
+
+        attemptJoinOrPrompt(fullCode, rawTarget, cleanKeyVal.match(/^\d+$/) ? 'code' : 'server', cleanKeyVal);
       }
+    });
+
+    function attemptJoinOrPrompt(fullCode, displayTitle, paramKey, paramVal) {
+      serverBadge.textContent = 'AJ';
+      serverTitle.textContent = 'ajg-connect';
+
+      try {
+        peer = createPeerInstance();
+        let connectionAttempted = false;
+
+        peer.on('open', () => {
+          const conn = peer.connect(fullCode);
+          
+          const timeout = setTimeout(() => {
+            if (!connectionAttempted) {
+              connectionAttempted = true;
+              peer.destroy();
+              showHostPrompt(fullCode, displayTitle, paramKey, paramVal);
+            }
+          }, 3500);
+
+          conn.on('open', () => {
+            clearTimeout(timeout);
+            if (!connectionAttempted) {
+              connectionAttempted = true;
+              bindConnection(conn);
+              myRoomCodeEl.textContent = `Code: ${fullCode}`;
+            }
+          });
+
+          conn.on('error', () => {
+            clearTimeout(timeout);
+            if (!connectionAttempted) {
+              connectionAttempted = true;
+              peer.destroy();
+              showHostPrompt(fullCode, displayTitle, paramKey, paramVal);
+            }
+          });
+        });
+
+        peer.on('error', (err) => {
+          console.warn('PeerJS connection error, testing simulation fallback or prompt', err);
+          showHostPrompt(fullCode, displayTitle, paramKey, paramVal);
+        });
+      } catch (e) {
+        showHostPrompt(fullCode, displayTitle, paramKey, paramVal);
+      }
+    }
+
+    function showHostPrompt(fullCode, displayTitle, paramKey, paramVal) {
+      pendingHostCode = fullCode;
+      pendingHostDisplay = displayTitle;
+      
+      const targetLabel = paramKey === 'code' ? `Private Code ${paramVal}` : `Server '${paramVal}'`;
+      hostPromptText.textContent = `${targetLabel} does not exist or is currently offline. Would you like to host it now?`;
+      hostPromptModal.style.display = 'flex';
+    }
+
+    hostPromptCancel.addEventListener('click', () => {
+      hostPromptModal.style.display = 'none';
+      updateUrlParams('code', null);
+      updateUrlParams('server', null);
+      startOverlay.style.display = 'flex';
+    });
+
+    hostPromptOk.addEventListener('click', () => {
+      hostPromptModal.style.display = 'none';
+      isHost = true;
+      const cleanVal = pendingHostCode.replace('ajg-', '');
+      if (cleanVal.match(/^\d+$/)) {
+        updateUrlParams('code', cleanVal);
+      } else {
+        updateUrlParams('server', cleanVal);
+      }
+      initHost(pendingHostCode, pendingHostDisplay);
     });
 
     function initHost(code, titleDisplay) {
@@ -988,12 +1107,12 @@
       isSimulationMode = true;
       setConnectedUI(code);
       addUser(currentUser);
-      appendMessage('System', '🌐 Sandbox WebSocket security restriction detected. Local simulation fallback enabled so you can fully test chat, images, audio, video, and safety modals right here!', '#23a55a');
+      appendMessage('System', '🌐 Sandbox WebSocket security restriction detected. Local simulation fallback enabled!', '#23a55a');
       
       setTimeout(() => {
         const botUser = { id: 'bot_alex', name: 'Alex_Bot', color: stringToColor('Alex_Bot') };
         addUser(botUser);
-        appendMessage('Alex_Bot', 'Hey there! Try sending a video or audio clip in this simulated room!', botUser.color);
+        appendMessage('Alex_Bot', 'Hey there! You joined successfully via URL parameters in simulation mode.', botUser.color);
       }, 1000);
     }
 
@@ -1088,14 +1207,12 @@
 
           setupAudioAnalyser(localAudioStream);
 
-          // Handle incoming voice calls if PeerJS is active
           if (peer && !isSimulationMode) {
             peer.on('call', (call) => {
               call.answer(localAudioStream);
               handleIncomingCall(call);
             });
 
-            // Call existing peers in the room
             connections.forEach(conn => {
               const remotePeerId = conn.peer;
               if (remotePeerId && !activePeerCalls.has(remotePeerId)) {
@@ -1104,7 +1221,6 @@
               }
             });
           } else if (isSimulationMode) {
-            // Simulate bot joining voice in simulation mode
             setTimeout(() => {
               const botUser = onlineUsers.get('bot_alex');
               if (botUser) {
@@ -1226,7 +1342,6 @@
       voiceParticipantsContainer.appendChild(notice);
     }
 
-    // Safe Leave Handling
     leaveBtn.addEventListener('click', () => {
       leaveConfirmModal.style.display = 'flex';
     });
@@ -1253,6 +1368,9 @@
       }
       isSimulationMode = false;
 
+      updateUrlParams('code', null);
+      updateUrlParams('server', null);
+
       onlineUsers.clear();
       usersContainer.innerHTML = '';
       messagesArea.innerHTML = `
@@ -1263,7 +1381,7 @@
               <span class="author">System</span>
               <span class="timestamp">Live</span>
             </div>
-            <div class="text">Welcome to ajg-connect with Video Support! Share images, universal audio, voice clips, or videos.</div>
+            <div class="text">Welcome to ajg-connect! URL parameters like ?code=5312 or ?server=recside are fully supported.</div>
           </div>
         </div>
       `;
@@ -1325,7 +1443,6 @@
       reader.readAsDataURL(file);
     }
 
-    // Voice recording setup
     recordBtn.addEventListener('click', async () => {
       if (!isRecording) {
         try {
@@ -1390,9 +1507,8 @@
       if (isSimulationMode && onlineUsers.has('bot_alex')) {
         setTimeout(() => {
           const botResponses = [
-            "That video clip looks awesome!",
-            "Thanks for sharing!",
-            "Testing out video and audio uploads here is super smooth.",
+            "URL parameter routing works like a charm!",
+            "Thanks for hosting or joining!",
             "Let me know if you want to test anything else!"
           ];
           const randomReply = botResponses[Math.floor(Math.random() * botResponses.length)];
@@ -1477,7 +1593,7 @@
             <span class="author">${sender}</span>
             <span class="timestamp">${time}</span>
           </div>
-          ${text ? `<div class="text"></div>` : ''}
+          ${text ? `<div class="text">` : ''}
           ${contentHtml}
         </div>
       `;
