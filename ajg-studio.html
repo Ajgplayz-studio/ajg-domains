@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ajg-studio</title>
+    <!-- Tailwind CSS for modern UI styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for professional UI icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Three.js & Addons -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #121214; color: #e1e1e6; font-family: system-ui, -apple-system, sans-serif; user-select: none; }
+        /* Custom scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #18181b; }
+        ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+        .panel-blur { background: rgba(24, 24, 27, 0.95); backdrop-filter: blur(8px); }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col overflow-hidden">
+
+    <!-- Top Navigation / Header -->
+    <header class="h-12 bg-[#18181b] border-b border-[#27272a] flex items-center justify-between px-4 z-20 shrink-0">
+        <div class="flex items-center space-x-3">
+            <div class="flex items-center space-x-2">
+                <div class="w-7 h-7 bg-indigo-600 rounded flex items-center justify-center font-bold text-white text-sm shadow-inner">AS</div>
+                <h1 class="font-bold tracking-wider text-sm text-zinc-100">ajg-<span class="text-indigo-400">studio</span></h1>
+            </div>
+            <div class="h-4 w-[1px] bg-zinc-700"></div>
+            <!-- File Menu Dropdown -->
+            <div class="relative group">
+                <button class="px-2.5 py-1 rounded text-xs font-medium text-zinc-300 hover:bg-zinc-800 hover:text-white transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-folder-open text-zinc-400"></i> File
+                </button>
+                <div class="absolute left-0 mt-1 w-48 panel-blur border border-zinc-700 rounded-lg shadow-xl py-1 hidden group-hover:block z-50">
+                    <button onclick="app.newProject()" class="w-full text-left px-4 py-2 text-xs text-zinc-300 hover:bg-indigo-600 hover:text-white flex items-center justify-between">
+                        <span>New Project</span><span class="text-[10px] text-zinc-500">Ctrl+N</span>
+                    </button>
+                    <label class="w-full text-left px-4 py-2 text-xs text-zinc-300 hover:bg-indigo-600 hover:text-white flex items-center justify-between cursor-pointer">
+                        <span>Import .GLB / .GLTF</span>
+                        <input type="file" id="import-file" accept=".glb,.gltf" class="hidden" onchange="app.importGLB(event)">
+                    </label>
+                    <div class="h-[1px] bg-zinc-700 my-1"></div>
+                    <button onclick="app.exportGLB()" class="w-full text-left px-4 py-2 text-xs text-zinc-300 hover:bg-indigo-600 hover:text-white flex items-center justify-between">
+                        <span>Export .GLB</span><span class="text-[10px] text-zinc-500">Ctrl+S</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Edit Menu -->
+            <div class="relative group">
+                <button class="px-2.5 py-1 rounded text-xs font-medium text-zinc-300 hover:bg-zinc-800 hover:text-white transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-edit text-zinc-400"></i> Edit
+                </button>
+                <div class="absolute left-0 mt-1 w-44 panel-blur border border-zinc-700 rounded-lg shadow-xl py-1 hidden group-hover:block z-50">
+                    <button onclick="app.duplicateSelected()" class="w-full text-left px-4 py-2 text-xs text-zinc-300 hover:bg-indigo-600 hover:text-white">Duplicate Selected</button>
+                    <button onclick="app.deleteSelected()" class="w-full text-left px-4 py-2 text-xs text-rose-400 hover:bg-rose-600 hover:text-white">Delete Selected</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transform Gizmo Mode Toggles -->
+        <div class="flex items-center bg-zinc-900 border border-zinc-700 rounded-lg p-0.5 space-x-1">
+            <button id="mode-translate" onclick="app.setTransformMode('translate')" title="Move (G)" class="w-7 h-7 rounded text-xs flex items-center justify-center text-zinc-300 hover:bg-zinc-700 hover:text-white transition bg-indigo-600 text-white">
+                <i class="fa-solid fa-arrows-up-down-left-right"></i>
+            </button>
+            <button id="mode-rotate" onclick="app.setTransformMode('rotate')" title="Rotate (R)" class="w-7 h-7 rounded text-xs flex items-center justify-center text-zinc-300 hover:bg-zinc-700 hover:text-white transition">
+                <i class="fa-solid fa-rotate"></i>
+            </button>
+            <button id="mode-scale" onclick="app.setTransformMode('scale')" title="Scale (S)" class="w-7 h-7 rounded text-xs flex items-center justify-center text-zinc-300 hover:bg-zinc-700 hover:text-white transition">
+                <i class="fa-solid fa-expand"></i>
+            </button>
+        </div>
+
+        <!-- Viewport Display Toggles -->
+        <div class="flex items-center space-x-2">
+            <button id="toggle-grid" onclick="app.toggleGrid()" title="Toggle Grid" class="px-2.5 py-1 rounded text-xs font-medium bg-zinc-800 text-zinc-200 hover:bg-zinc-700 transition flex items-center gap-1">
+                <i class="fa-solid fa-border-all"></i> Grid
+            </button>
+            <button id="toggle-wireframe" onclick="app.toggleWireframe()" title="Toggle Wireframe Mode" class="px-2.5 py-1 rounded text-xs font-medium bg-zinc-800 text-zinc-200 hover:bg-zinc-700 transition flex items-center gap-1">
+                <i class="fa-solid fa-vector-square"></i> Wire
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace Area -->
+    <div class="flex-1 flex relative overflow-hidden">
+
+        <!-- Left Sidebar: Add Primitives & Tools -->
+        <aside class="w-64 bg-[#18181b] border-r border-[#27272a] flex flex-col z-10 shrink-0">
+            <div class="p-3 border-b border-zinc-800 font-semibold text-xs text-zinc-400 tracking-wider uppercase flex items-center gap-2">
+                <i class="fa-solid fa-cube text-indigo-400"></i> Add Primitives
+            </div>
+            <div class="p-3 grid grid-cols-2 gap-2 border-b border-zinc-800">
+                <button onclick="app.addPrimitive('cube')" class="flex flex-col items-center justify-center p-2.5 bg-zinc-900 border border-zinc-800 rounded-lg hover:border-indigo-500 hover:bg-zinc-800 transition group">
+                    <i class="fa-solid fa-cube text-lg text-indigo-400 group-hover:scale-110 transition mb-1"></i>
+                    <span class="text-xs text-zinc-300">Cube</span>
+                </button>
+                <button onclick="app.addPrimitive('sphere')" class="flex flex-col items-center justify-center p-2.5 bg-zinc-900 border border-zinc-800 rounded-lg hover:border-indigo-500 hover:bg-zinc-800 transition group">
+                    <i class="fa-solid fa-circle text-lg text-emerald-400 group-hover:scale-110 transition mb-1"></i>
+                    <span class="text-xs text-zinc-300">Sphere</span>
+                </button>
+                <button onclick="app.addPrimitive('cylinder')" class="flex flex-col items-center justify-center p-2.5 bg-zinc-900 border border-zinc-800 rounded-lg hover:border-indigo-500 hover:bg-zinc-800 transition group">
+                    <i class="fa-solid fa-database text-lg text-amber-400 group-hover:scale-110 transition mb-1"></i>
+                    <span class="text-xs text-zinc-300">Cylinder</span>
+                </button>
+                <button onclick="app.addPrimitive('plane')" class="flex flex-col items-center justify-center p-2.5 bg-zinc-900 border border-zinc-800 rounded-lg hover:border-indigo-500 hover:bg-zinc-800 transition group">
+                    <i class="fa-solid fa-square text-lg text-sky-400 group-hover:scale-110 transition mb-1"></i>
+                    <span class="text-xs text-zinc-300">Plane</span>
+                </button>
+                <button onclick="app.addPrimitive('torus')" class="flex flex-col items-center justify-center p-2.5 bg-zinc-900 border border-zinc-800 rounded-lg hover:border-indigo-500 hover:bg-zinc-800 transition group">
+                    <i class="fa-solid fa-circle-dot text-lg text-purple-400 group-hover:scale-110 transition mb-1"></i>
+                    <span class="text-xs text-zinc-300">Torus</span>
+                </button>
+                <button onclick="app.addPrimitive('cone')" class="flex flex-col items-center justify-center p-2.5 bg-zinc-900 border border-zinc-800 rounded-lg hover:border-indigo-500 hover:bg-zinc-800 transition group">
+                    <i class="fa-solid fa-triangle text-lg text-rose-400 group-hover:scale-110 transition mb-1"></i>
+                    <span class="text-xs text-zinc-300">Cone</span>
+                </button>
+            </div>
+
+            <!-- Quick Import Banner -->
+            <div class="p-3 bg-zinc-900/50 m-3 rounded-lg border border-dashed border-zinc-700 flex flex-col items-center text-center">
+                <i class="fa-solid fa-file-arrow-up text-2xl text-indigo-400 mb-1.5"></i>
+                <p class="text-xs text-zinc-300 font-medium mb-1">Import GLB / GLTF</p>
+                <p class="text-[10px] text-zinc-500 mb-2">Drag & drop files directly onto viewport</p>
+                <label class="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded font-medium cursor-pointer transition">
+                    Browse File
+                    <input type="file" accept=".glb,.gltf" class="hidden" onchange="app.importGLB(event)">
+                </label>
+            </div>
+        </aside>
+
+        <!-- Center 3D Viewport -->
+        <div id="viewport" class="flex-1 relative cursor-grab active:cursor-grabbing">
+            <!-- Viewport Overlay Helper Badges -->
+            <div class="absolute top-3 left-3 bg-zinc-900/80 backdrop-blur border border-zinc-700/60 rounded px-2.5 py-1 text-[11px] text-zinc-400 pointer-events-none flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>Perspective View</span>
+            </div>
+            
+            <div id="loading-overlay" class="absolute inset-0 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center z-30 hidden">
+                <div class="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-3"></div>
+                <p id="loading-text" class="text-sm font-medium text-zinc-200">Processing file...</p>
+            </div>
+        </div>
+
+        <!-- Right Sidebar: Outliner & Inspector -->
+        <aside class="w-72 bg-[#18181b] border-l border-[#27272a] flex flex-col z-10 shrink-0">
+            <!-- Outliner Panel -->
+            <div class="h-1/2 flex flex-col border-b border-zinc-800">
+                <div class="p-3 border-b border-zinc-800 font-semibold text-xs text-zinc-400 tracking-wider uppercase flex items-center justify-between">
+                    <span class="flex items-center gap-2"><i class="fa-solid fa-list-tree text-indigo-400"></i> Scene Outliner</span>
+                    <span id="object-count" class="text-[10px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded">0 objects</span>
+                </div>
+                <div id="outliner-list" class="flex-1 overflow-y-auto p-2 space-y-1">
+                    <!-- Outliner items injected dynamically -->
+                </div>
+            </div>
+
+            <!-- Inspector / Transform & Material Panel -->
+            <div class="h-1/2 flex flex-col bg-[#141416]">
+                <div class="p-3 border-b border-zinc-800 font-semibold text-xs text-zinc-400 tracking-wider uppercase flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-indigo-400"></i> Inspector
+                </div>
+                <div id="inspector-content" class="flex-1 overflow-y-auto p-3 space-y-4">
+                    <div class="text-center py-10 text-zinc-500 text-xs">
+                        Select an object in the viewport or outliner to edit properties.
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Status Bar / Footer -->
+    <footer class="h-7 bg-[#18181b] border-t border-[#27272a] flex items-center justify-between px-4 text-[11px] text-zinc-400 z-20 shrink-0">
+        <div class="flex items-center space-x-4">
+            <span id="status-msg">Ready</span>
+            <span>•</span>
+            <span id="poly-count">Polys: 0</span>
+        </div>
+        <div class="flex items-center space-x-3">
+            <span>ajg-studio v1.0</span>
+            <span class="text-zinc-600">|</span>
+            <span class="text-indigo-400 font-medium">Three.js WebGL</span>
+        </div>
+    </footer>
+
+    <!-- Main Application Logic -->
+    <script>
+        class AJGStudio {
+            constructor() {
+                this.container = document.getElementById('viewport');
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color(0x121214);
+
+                this.camera = new THREE.PerspectiveCamera(60, this.container.clientWidth / this.container.clientHeight, 0.1, 1000);
+                this.camera.position.set(5, 5, 5);
+
+                this.renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+                this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                this.renderer.outputEncoding = THREE.sRGBEncoding;
+                this.container.appendChild(this.renderer.domElement);
+
+                this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+                this.controls.enableDamping = true;
+                this.controls.dampingFactor = 0.05;
+
+                this.transformControls = new THREE.TransformControls(this.camera, this.renderer.domElement);
+                this.scene.add(this.transformControls);
+
+                this.transformControls.addEventListener('dragging-changed', (event) => {
+                    this.controls.enabled = !event.value;
+                });
+
+                this.transformControls.addEventListener('change', () => {
+                    if (this.selectedObject) {
+                        this.updateInspectorValues();
+                    }
+                });
+
+                this.raycaster = new THREE.Raycaster();
+                this.mouse = new THREE.Vector2();
+
+                this.objects = [];
+                this.selectedObject = null;
+                this.isWireframe = false;
+                this.gridVisible = true;
+
+                this.initScene();
+                this.initListeners();
+                this.animate();
+            }
+
+            initScene() {
+                // Ambient & Directional Lights
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+                this.scene.add(ambientLight);
+
+                const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                dirLight.position.set(10, 20, 10);
+                dirLight.castShadow = true;
+                dirLight.shadow.mapSize.width = 2048;
+                dirLight.shadow.mapSize.height = 2048;
+                this.scene.add(dirLight);
+
+                const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.4);
+                hemiLight.position.set(0, 20, 0);
+                this.scene.add(hemiLight);
+
+                // Grid & Origin Axes
+                this.grid = new THREE.GridHelper(30, 30, 0x4f46e5, 0x27272a);
+                this.grid.position.y = -0.01;
+                this.scene.add(this.grid);
+
+                // Add default starting cube
+                this.addPrimitive('cube', 'Cube');
+            }
+
+            initListeners() {
+                window.addEventListener('resize', () => {
+                    this.camera.aspect = this.container.clientWidth / this.container.clientHeight;
+                    this.camera.updateProjectionMatrix();
+                    this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
+                });
+
+                this.renderer.domElement.addEventListener('pointerdown', (e) => this.onPointerDown(e));
+
+                // Keyboard Shortcuts
+                window.addEventListener('keydown', (e) => {
+                    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+                    if (e.key === 'g' || e.key === 'G') this.setTransformMode('translate');
+                    if (e.key === 'r' || e.key === 'R') this.setTransformMode('rotate');
+                    if (e.key === 's' || e.key === 'S') this.setTransformMode('scale');
+                    if (e.key === 'Delete' || e.key === 'Backspace') this.deleteSelected();
+                    if (e.ctrlKey && e.key === 's') { e.preventDefault(); this.exportGLB(); }
+                    if (e.ctrlKey && e.key === 'n') { e.preventDefault(); this.newProject(); }
+                });
+
+                // Drag and Drop GLB support
+                this.container.addEventListener('dragover', (e) => e.preventDefault());
+                this.container.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    if (e.dataTransfer.files.length > 0) {
+                        const file = e.dataTransfer.files[0];
+                        if (file.name.endsWith('.glb') || file.name.endsWith('.gltf')) {
+                            this.loadGLBFile(file);
+                        }
+                    }
+                });
+            }
+
+            addPrimitive(type, nameCustom = null) {
+                let geometry;
+                const size = 1.5;
+                switch(type) {
+                    case 'cube': geometry = new THREE.BoxGeometry(size, size, size); break;
+                    case 'sphere': geometry = new THREE.SphereGeometry(size / 1.2, 32, 32); break;
+                    case 'cylinder': geometry = new THREE.CylinderGeometry(size/2, size/2, size, 32); break;
+                    case 'plane': geometry = new THREE.PlaneGeometry(size * 1.5, size * 1.5); geometry.rotateX(-Math.PI/2); break;
+                    case 'torus': geometry = new THREE.TorusGeometry(size/1.2, size/3, 24, 48); break;
+                    case 'cone': geometry = new THREE.ConeGeometry(size/1.2, size, 32); break;
+                    default: geometry = new THREE.BoxGeometry(size, size, size);
+                }
+
+                const material = new THREE.MeshStandardMaterial({
+                    color: new THREE.Color().setHSL(Math.random(), 0.7, 0.5),
+                    roughness: 0.4,
+                    metalness: 0.1,
+                    wireframe: this.isWireframe
+                });
+
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                mesh.name = nameCustom || `${type.charAt(0).toUpperCase() + type.slice(1)}_${this.objects.length + 1}`;
+
+                // Position slightly offset if multiple
+                mesh.position.y = size / 2;
+                
+                this.scene.add(mesh);
+                this.objects.push(mesh);
+                this.selectObject(mesh);
+                this.updateOutliner();
+                this.updatePolyCount();
+                this.setStatus(`Added ${mesh.name}`);
+            }
+
+            selectObject(object) {
+                this.selectedObject = object;
+                if (object) {
+                    this.transformControls.attach(object);
+                } else {
+                    this.transformControls.detach();
+                }
+                this.updateOutliner();
+                this.updateInspector();
+            }
+
+            onPointerDown(event) {
+                if (event.button !== 0) return; // Only left click
+                const rect = this.renderer.domElement.getBoundingClientRect();
+                this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+                this.raycaster.setFromCamera(this.mouse, this.camera);
+                
+                // Collect selectable meshes
+                const intersects = this.raycaster.intersectObjects(this.objects, true);
+
+                if (intersects.length > 0) {
+                    let obj = intersects[0].object;
+                    // Traverse up to root object if part of imported group
+                    while (obj.parent && obj.parent !== this.scene && !this.objects.includes(obj)) {
+                        if (this.objects.includes(obj.parent)) {
+                            obj = obj.parent;
+                            break;
+                        }
+                        obj = obj.parent;
+                    }
+                    if (this.objects.includes(obj)) {
+                        this.selectObject(obj);
+                    }
+                }
+            }
+
+            setTransformMode(mode) {
+                this.transformControls.setMode(mode);
+                ['translate', 'rotate', 'scale'].forEach(m => {
+                    const btn = document.getElementById(`mode-${m}`);
+                    if (m === mode) {
+                        btn.className = "w-7 h-7 rounded text-xs flex items-center justify-center transition bg-indigo-600 text-white";
+                    } else {
+                        btn.className = "w-7 h-7 rounded text-xs flex items-center justify-center text-zinc-300 hover:bg-zinc-700 hover:text-white transition";
+                    }
+                });
+            }
+
+            toggleGrid() {
+                this.gridVisible = !this.gridVisible;
+                this.grid.visible = this.gridVisible;
+                const btn = document.getElementById('toggle-grid');
+                btn.className = this.gridVisible ? "px-2.5 py-1 rounded text-xs font-medium bg-zinc-800 text-zinc-200 hover:bg-zinc-700 transition flex items-center gap-1" : "px-2.5 py-1 rounded text-xs font-medium bg-zinc-900 text-zinc-500 hover:bg-zinc-800 transition flex items-center gap-1";
+            }
+
+            toggleWireframe() {
+                this.isWireframe = !this.isWireframe;
+                this.objects.forEach(obj => {
+                    obj.traverse(child => {
+                        if (child.material) {
+                            if (Array.isArray(child.material)) {
+                                child.material.forEach(m => m.wireframe = this.isWireframe);
+                            } else {
+                                child.material.wireframe = this.isWireframe;
+                            }
+                        }
+                    });
+                });
+                const btn = document.getElementById('toggle-wireframe');
+                btn.className = this.isWireframe ? "px-2.5 py-1 rounded text-xs font-medium bg-indigo-600 text-white transition flex items-center gap-1" : "px-2.5 py-1 rounded text-xs font-medium bg-zinc-800 text-zinc-200 hover:bg-zinc-700 transition flex items-center gap-1";
+            }
+
+            deleteSelected() {
+                if (!this.selectedObject) return;
+                const name = this.selectedObject.name;
+                this.transformControls.detach();
+                this.scene.remove(this.selectedObject);
+                
+                // Dispose geometries & materials
+                this.selectedObject.traverse(child => {
+                    if (child.geometry) child.geometry.dispose();
+                    if (child.material) {
+                        if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+                        else child.material.dispose();
+                    }
+                });
+
+                this.objects = this.objects.filter(o => o !== this.selectedObject);
+                this.selectedObject = null;
+                this.updateOutliner();
+                this.updateInspector();
+                this.updatePolyCount();
+                this.setStatus(`Deleted ${name}`);
+            }
+
+            duplicateSelected() {
+                if (!this.selectedObject) return;
+                const clone = this.selectedObject.clone(true);
+                clone.position.x += 1;
+                clone.position.z += 1;
+                clone.name = `${this.selectedObject.name}_Copy`;
+                this.scene.add(clone);
+                this.objects.push(clone);
+                this.selectObject(clone);
+                this.updateOutliner();
+                this.updatePolyCount();
+                this.setStatus(`Duplicated ${clone.name}`);
+            }
+
+            newProject() {
+                if (confirm('Create new project? Unsaved changes will be lost.')) {
+                    this.objects.forEach(obj => {
+                        this.scene.remove(obj);
+                        obj.traverse(child => {
+                            if (child.geometry) child.geometry.dispose();
+                            if (child.material) {
+                                if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+                                else child.material.dispose();
+                            }
+                        });
+                    });
+                    this.objects = [];
+                    this.selectObject(null);
+                    this.addPrimitive('cube', 'Cube');
+                    this.setStatus('New project created');
+                }
+            }
+
+            importGLB(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                this.loadGLBFile(file);
+                event.target.value = '';
+            }
+
+            loadGLBFile(file) {
+                const reader = new FileReader();
+                this.showLoading(true, `Loading ${file.name}...`);
+                reader.readAsArrayBuffer(file);
+                reader.onload = (e) => {
+                    const contents = e.target.result;
+                    const loader = new THREE.GLTFLoader();
+                    loader.parse(contents, '', (gltf) => {
+                        const model = gltf.scene;
+                        model.name = file.name.replace(/\.[^/.]+$/, "");
+                        
+                        // Scale and center appropriately
+                        const box = new THREE.Box3().setFromObject(model);
+                        const size = box.getSize(new THREE.Vector3()).length();
+                        if (size > 10) {
+                            const scaleFactor = 5 / size;
+                            model.scale.set(scaleFactor, scaleFactor, scaleFactor);
+                        }
+
+                        model.traverse(child => {
+                            if (child.isMesh) {
+                                child.castShadow = true;
+                                child.receiveShadow = true;
+                                if (this.isWireframe && child.material) child.material.wireframe = true;
+                            }
+                        });
+
+                        this.scene.add(model);
+                        this.objects.push(model);
+                        this.selectObject(model);
+                        this.updateOutliner();
+                        this.updatePolyCount();
+                        this.showLoading(false);
+                        this.setStatus(`Successfully imported ${file.name}`);
+                    }, (error) => {
+                        console.error(error);
+                        this.showLoading(false);
+                        alert('Error parsing GLB file. Make sure it is a valid .glb or .gltf file.');
+                    });
+                };
+            }
+
+            exportGLB() {
+                if (this.objects.length === 0) {
+                    alert('No objects in the scene to export.');
+                    return;
+                }
+                const exporter = new THREE.GLTFExporter();
+                this.showLoading(true, 'Exporting GLB...');
+                
+                // Export entire scene objects or selection
+                exporter.parse(this.objects, (gltf) => {
+                    this.showLoading(false);
+                    const blob = new Blob([gltf], { type: 'model/gltf-binary' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = 'ajg-studio_scene.glb';
+                    link.click();
+                    this.setStatus('Exported scene to GLB successfully');
+                }, { binary: true }, (err) => {
+                    console.error(err);
+                    this.showLoading(false);
+                    alert('Error exporting GLB file.');
+                });
+            }
+
+            updateOutliner() {
+                const list = document.getElementById('outliner-list');
+                const countBadge = document.getElementById('object-count');
+                list.innerHTML = '';
+                countBadge.innerText = `${this.objects.length} objects`;
+
+                if (this.objects.length === 0) {
+                    list.innerHTML = `<div class="text-center py-6 text-zinc-500 text-xs">No objects in scene</div>`;
+                    return;
+                }
+
+                this.objects.forEach((obj, idx) => {
+                    const isSelected = obj === this.selectedObject;
+                    const item = document.createElement('div');
+                    item.className = `flex items-center justify-between px-2.5 py-1.5 rounded text-xs cursor-pointer transition ${isSelected ? 'bg-indigo-600/30 border border-indigo-500/50 text-white font-medium' : 'hover:bg-zinc-800 text-zinc-300'}`;
+                    
+                    let icon = 'fa-cube';
+                    if (obj.children.length > 0 && !obj.isMesh) icon = 'fa-folder-open';
+                    
+                    item.innerHTML = `
+                        <div class="flex items-center gap-2 truncate">
+                            <i class="fa-solid ${icon} text-indigo-400"></i>
+                            <span class="truncate">${obj.name || 'Object ' + idx}</span>
+                        </div>
+                        <div class="flex items-center gap-1 opacity-60 hover:opacity-100">
+                            <button onclick="event.stopPropagation(); app.deleteObjectByIndex(${idx})" class="p-1 hover:text-rose-400"><i class="fa-solid fa-trash text-[10px]"></i></button>
+                        </div>
+                    `;
+                    item.onclick = () => this.selectObject(obj);
+                    list.appendChild(item);
+                });
+            }
+
+            deleteObjectByIndex(idx) {
+                const obj = this.objects[idx];
+                if (obj) {
+                    if (this.selectedObject === obj) this.selectObject(null);
+                    this.scene.remove(obj);
+                    obj.traverse(child => {
+                        if (child.geometry) child.geometry.dispose();
+                        if (child.material) {
+                            if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+                            else child.material.dispose();
+                        }
+                    });
+                    this.objects.splice(idx, 1);
+                    this.updateOutliner();
+                    this.updateInspector();
+                    this.updatePolyCount();
+                }
+            }
+
+            updateInspector() {
+                const container = document.getElementById('inspector-content');
+                if (!this.selectedObject) {
+                    container.innerHTML = `<div class="text-center py-10 text-zinc-500 text-xs">Select an object in the viewport or outliner to edit properties.</div>`;
+                    return;
+                }
+
+                const obj = this.selectedObject;
+                let meshMaterial = null;
+                obj.traverse(child => {
+                    if (!meshMaterial && child.material) meshMaterial = Array.isArray(child.material) ? child.material[0] : child.material;
+                });
+
+                const colorHex = meshMaterial && meshMaterial.color ? '#' + meshMaterial.color.getHexString() : '#ffffff';
+                const roughness = meshMaterial && meshMaterial.roughness !== undefined ? meshMaterial.roughness : 0.5;
+                const metalness = meshMaterial && meshMaterial.metalness !== undefined ? meshMaterial.metalness : 0.1;
+
+                container.innerHTML = `
+                    <div class="space-y-3">
+                        <div>
+                            <label class="text-[10px] uppercase font-semibold text-zinc-500 tracking-wider">Object Name</label>
+                            <input type="text" id="obj-name" value="${obj.name}" onchange="app.onNameChange(this.value)" class="w-full mt-1 bg-zinc-900 border border-zinc-700 rounded px-2.5 py-1 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500">
+                        </div>
+
+                        <!-- Transform Form -->
+                        <div class="border-t border-zinc-800 pt-3">
+                            <label class="text-[10px] uppercase font-semibold text-zinc-500 tracking-wider mb-2 block">Transform</label>
+                            
+                            <div class="grid grid-cols-4 gap-1 mb-2 text-xs items-center">
+                                <span class="text-zinc-500 text-[10px]">Position</span>
+                                <input type="number" step="0.1" id="pos-x" value="${obj.position.x.toFixed(2)}" onchange="app.onTransformChange()" class="bg-zinc-900 border border-zinc-700 rounded px-1 py-0.5 text-center text-zinc-200">
+                                <input type="number" step="0.1" id="pos-y" value="${obj.position.y.toFixed(2)}" onchange="app.onTransformChange()" class="bg-zinc-900 border border-zinc-700 rounded px-1 py-0.5 text-center text-zinc-200">
+                                <input type="number" step="0.1" id="pos-z" value="${obj.position.z.toFixed(2)}" onchange="app.onTransformChange()" class="bg-zinc-900 border border-zinc-700 rounded px-1 py-0.5 text-center text-zinc-200">
+                            </div>
+
+                            <div class="grid grid-cols-4 gap-1 mb-2 text-xs items-center">
+                                <span class="text-zinc-500 text-[10px]">Rotation</span>
+                                <input type="number" step="1" id="rot-x" value="${THREE.MathUtils.radToDeg(obj.rotation.x).toFixed(0)}" onchange="app.onTransformChange()" class="bg-zinc-900 border border-zinc-700 rounded px-1 py-0.5 text-center text-zinc-200">
+                                <input type="number" step="1" id="rot-y" value="${THREE.MathUtils.radToDeg(obj.rotation.y).toFixed(0)}" onchange="app.onTransformChange()" class="bg-zinc-900 border border-zinc-700 rounded px-1 py-0.5 text-center text-zinc-200">
+                                <input type="number" step="1" id="rot-z" value="${THREE.MathUtils.radToDeg(obj.rotation.z).toFixed(0)}" onchange="app.onTransformChange()" class="bg-zinc-900 border border-zinc-700 rounded px-1 py-0.5 text-center text-zinc-200">
+                            </div>
+
+                            <div class="grid grid-cols-4 gap-1 text-xs items-center">
+                                <span class="text-zinc-500 text-[10px]">Scale</span>
+                                <input type="number" step="0.1" id="scale-x" value="${obj.scale.x.toFixed(2)}" onchange="app.onTransformChange()" class="bg-zinc-900 border border-zinc-700 rounded px-1 py-0.5 text-center text-zinc-200">
+                                <input type="number" step="0.1" id="scale-y" value="${obj.scale.y.toFixed(2)}" onchange="app.onTransformChange()" class="bg-zinc-900 border border-zinc-700 rounded px-1 py-0.5 text-center text-zinc-200">
+                                <input type="number" step="0.1" id="scale-z" value="${obj.scale.z.toFixed(2)}" onchange="app.onTransformChange()" class="bg-zinc-900 border border-zinc-700 rounded px-1 py-0.5 text-center text-zinc-200">
+                            </div>
+                        </div>
+
+                        <!-- Material Settings -->
+                        ${meshMaterial ? `
+                        <div class="border-t border-zinc-800 pt-3 space-y-2">
+                            <label class="text-[10px] uppercase font-semibold text-zinc-500 tracking-wider block">Material Properties</label>
+                            
+                            <div class="flex items-center justify-between text-xs">
+                                <span class="text-zinc-400">Base Color</span>
+                                <input type="color" id="mat-color" value="${colorHex}" onchange="app.onMaterialChange()" class="w-8 h-6 bg-transparent border border-zinc-700 rounded cursor-pointer">
+                            </div>
+
+                            <div class="space-y-1">
+                                <div class="flex justify-between text-xs">
+                                    <span class="text-zinc-400">Roughness</span>
+                                    <span id="roughness-val" class="text-zinc-500">${roughness.toFixed(2)}</span>
+                                </div>
+                                <input type="range" id="mat-roughness" min="0" max="1" step="0.05" value="${roughness}" oninput="app.onMaterialChange()" class="w-full accent-indigo-600">
+                            </div>
+
+                            <div class="space-y-1">
+                                <div class="flex justify-between text-xs">
+                                    <span class="text-zinc-400">Metalness</span>
+                                    <span id="metalness-val" class="text-zinc-500">${metalness.toFixed(2)}</span>
+                                </div>
+                                <input type="range" id="mat-metalness" min="0" max="1" step="0.05" value="${metalness}" oninput="app.onMaterialChange()" class="w-full accent-indigo-600">
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+
+            updateInspectorValues() {
+                if (!this.selectedObject) return;
+                const obj = this.selectedObject;
+                
+                const px = document.getElementById('pos-x'); if (px) px.value = obj.position.x.toFixed(2);
+                const py = document.getElementById('pos-y'); if (py) py.value = obj.position.y.toFixed(2);
+                const pz = document.getElementById('pos-z'); if (pz) pz.value = obj.position.z.toFixed(2);
+
+                const rx = document.getElementById('rot-x'); if (rx) rx.value = THREE.MathUtils.radToDeg(obj.rotation.x).toFixed(0);
+                const ry = document.getElementById('rot-y'); if (ry) ry.value = THREE.MathUtils.radToDeg(obj.rotation.y).toFixed(0);
+                const rz = document.getElementById('rot-z'); if (rz) rz.value = THREE.MathUtils.radToDeg(obj.rotation.z).toFixed(0);
+
+                const sx = document.getElementById('scale-x'); if (sx) sx.value = obj.scale.x.toFixed(2);
+                const sy = document.getElementById('scale-y'); if (sy) sy.value = obj.scale.y.toFixed(2);
+                const sz = document.getElementById('scale-z'); if (sz) sz.value = obj.scale.z.toFixed(2);
+            }
+
+            onTransformChange() {
+                if (!this.selectedObject) return;
+                const obj = this.selectedObject;
+
+                obj.position.set(
+                    parseFloat(document.getElementById('pos-x').value) || 0,
+                    parseFloat(document.getElementById('pos-y').value) || 0,
+                    parseFloat(document.getElementById('pos-z').value) || 0
+                );
+
+                obj.rotation.set(
+                    THREE.MathUtils.degToRad(parseFloat(document.getElementById('rot-x').value) || 0),
+                    THREE.MathUtils.degToRad(parseFloat(document.getElementById('rot-y').value) || 0),
+                    THREE.MathUtils.degToRad(parseFloat(document.getElementById('rot-z').value) || 0)
+                );
+
+                obj.scale.set(
+                    parseFloat(document.getElementById('scale-x').value) || 1,
+                    parseFloat(document.getElementById('scale-y').value) || 1,
+                    parseFloat(document.getElementById('scale-z').value) || 1
+                );
+            }
+
+            onNameChange(newName) {
+                if (!this.selectedObject) return;
+                this.selectedObject.name = newName;
+                this.updateOutliner();
+            }
+
+            onMaterialChange() {
+                if (!this.selectedObject) return;
+                const color = document.getElementById('mat-color').value;
+                const roughness = parseFloat(document.getElementById('mat-roughness').value);
+                const metalness = parseFloat(document.getElementById('mat-metalness').value);
+
+                document.getElementById('roughness-val').innerText = roughness.toFixed(2);
+                document.getElementById('metalness-val').innerText = metalness.toFixed(2);
+
+                this.selectedObject.traverse(child => {
+                    if (child.material) {
+                        const mats = Array.isArray(child.material) ? child.material : [child.material];
+                        mats.forEach(m => {
+                            if (m.color) m.color.set(color);
+                            if (m.roughness !== undefined) m.roughness = roughness;
+                            if (m.metalness !== undefined) m.metalness = metalness;
+                        });
+                    }
+                });
+            }
+
+            updatePolyCount() {
+                let tris = 0;
+                this.objects.forEach(obj => {
+                    obj.traverse(child => {
+                        if (child.isMesh && child.geometry) {
+                            const geom = child.geometry;
+                            if (geom.index) {
+                                tris += geom.index.count / 3;
+                            } else if (geom.attributes.position) {
+                                tris += geom.attributes.position.count / 3;
+                            }
+                        }
+                    });
+                });
+                document.getElementById('poly-count').innerText = `Polys: ${tris.toLocaleString()}`;
+            }
+
+            showLoading(show, text = 'Processing...') {
+                const overlay = document.getElementById('loading-overlay');
+                const label = document.getElementById('loading-text');
+                label.innerText = text;
+                if (show) overlay.classList.remove('hidden');
+                else overlay.classList.add('hidden');
+            }
+
+            setStatus(msg) {
+                document.getElementById('status-msg').innerText = msg;
+            }
+
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                this.controls.update();
+                this.renderer.render(this.scene, this.camera);
+            }
+        }
+
+        // Initialize ajg-studio on window load
+        let app;
+        window.addEventListener('DOMContentLoaded', () => {
+            app = new AJGStudio();
+        });
+    </script>
+</body>
+</html>
