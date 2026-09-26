@@ -217,6 +217,9 @@
                 this.previousMousePosition = { x: 0, y: 0 };
                 this.updateCameraOrientation();
 
+                // Smooth zoom damping target position
+                this.targetCameraPosition = this.camera.position.clone();
+
                 this.transformControls = new THREE.TransformControls(this.camera, this.renderer.domElement);
                 this.scene.add(this.transformControls);
 
@@ -313,16 +316,16 @@
                     }
                 });
 
-                // Scroll wheel zooming forward/backward along view direction
+                // Smooth scroll wheel zooming forward/backward along view direction
                 this.renderer.domElement.addEventListener('wheel', (e) => {
                     e.preventDefault();
-                    const zoomSpeed = 0.8;
+                    const zoomSpeed = 1.2;
                     const forward = new THREE.Vector3();
                     this.camera.getWorldDirection(forward);
                     
                     // Scroll down (deltaY > 0) zooms out, scroll up (deltaY < 0) zooms in
                     const direction = e.deltaY > 0 ? -1 : 1;
-                    this.camera.position.addScaledVector(forward, direction * zoomSpeed);
+                    this.targetCameraPosition.addScaledVector(forward, direction * zoomSpeed);
                 }, { passive: false });
 
                 // Prevent default context menu on right click in viewport
@@ -394,17 +397,22 @@
                 const right = new THREE.Vector3();
                 right.crossVectors(forward, this.camera.up).normalize();
 
+                let moved = false;
                 if (this.keys['ArrowUp'] || this.keys['KeyW']) {
-                    this.camera.position.addScaledVector(forward, speed);
+                    this.targetCameraPosition.addScaledVector(forward, speed);
+                    moved = true;
                 }
                 if (this.keys['ArrowDown'] || this.keys['KeyS']) {
-                    this.camera.position.addScaledVector(forward, -speed);
+                    this.targetCameraPosition.addScaledVector(forward, -speed);
+                    moved = true;
                 }
                 if (this.keys['ArrowLeft'] || this.keys['KeyA']) {
-                    this.camera.position.addScaledVector(right, -speed);
+                    this.targetCameraPosition.addScaledVector(right, -speed);
+                    moved = true;
                 }
                 if (this.keys['ArrowRight'] || this.keys['KeyD']) {
-                    this.camera.position.addScaledVector(right, speed);
+                    this.targetCameraPosition.addScaledVector(right, speed);
+                    moved = true;
                 }
             }
 
@@ -877,6 +885,10 @@
 
                 const delta = 0.016;
                 this.updateMovement(delta);
+
+                // Smoothly interpolate (lerp) camera position toward target position for fluid zooming & movement
+                this.camera.position.lerp(this.targetCameraPosition, 0.12);
+                this.updateCameraOrientation();
 
                 this.renderer.render(this.scene, this.camera);
             }
